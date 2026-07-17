@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LIV Golf Stats</title>
+<meta name="theme-color" content="#0A1E3F">
+<style>
+  :root {
+    --bg: #0E1116; --surface: #171B23; --card: #1D222C; --ink: #F2F4F8; --ink-soft: #9AA3B2;
+    --line: #2A3040; --accent: #D4AF37; --accent-ink: #12100A;
+    --shadow: 0 6px 20px rgba(0,0,0,0.4);
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #F0F2F6; --surface: #FFFFFF; --card: #FFFFFF; --ink: #12151C; --ink-soft: #5C6270;
+      --line: #E0E3EA; --shadow: 0 6px 20px rgba(20,20,30,0.10); }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 16px 50px; }
+
+  header { text-align: center; margin-bottom: 18px; }
+  header .eyebrow { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); }
+  header h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); margin: 6px 0 4px; font-weight: 900; letter-spacing: -0.01em; }
+  header p { color: var(--ink-soft); font-size: 0.88rem; margin: 0; }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 8px; align-items: center; }
+  .search-box { flex: 1; min-width: 160px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 11px 14px; color: var(--ink); font-size: 0.95rem; font-family: inherit; }
+  .search-box:focus { outline: 2px solid var(--accent); }
+  .sort-select { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px;
+    color: var(--ink); font-size: 0.88rem; font-family: inherit; }
+
+  .team-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+  .team-chip {
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.74rem; font-weight: 700;
+    padding: 6px 12px; border-radius: 999px; cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .team-chip.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  .stat-strip { display: flex; justify-content: center; gap: 26px; margin-bottom: 4px; color: var(--ink-soft); font-size: 0.78rem; }
+  .stat-strip b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-top: 14px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; box-shadow: var(--shadow);
+    display: flex; flex-direction: column; position: relative;
+  }
+  .card-photo { width: 100%; aspect-ratio: 1; position: relative; overflow: hidden; background: var(--surface); }
+  .card-photo img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+  .card-photo .initials-fallback {
+    width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    font-size: 2.4rem; font-weight: 900; color: #fff;
+  }
+  .rank-badge {
+    position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.65); color: #fff; font-size: 0.7rem; font-weight: 800;
+    padding: 3px 8px; border-radius: 999px; font-variant-numeric: tabular-nums;
+  }
+  .team-bar { height: 5px; width: 100%; }
+  .card-body { padding: 10px 12px 12px; }
+  .card-name { font-weight: 800; font-size: 0.92rem; line-height: 1.25; margin-bottom: 3px; }
+  .card-team { font-size: 0.7rem; color: var(--ink-soft); font-weight: 700; margin-bottom: 6px; }
+  .card-stats { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.78rem; }
+  .card-points { font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .card-flag { font-size: 1rem; }
+
+  .empty-note { text-align: center; color: var(--ink-soft); padding: 40px 10px; grid-column: 1 / -1; }
+  footer { text-align: center; color: var(--ink-soft); font-size: 0.74rem; margin-top: 30px; line-height: 1.7; }
+  footer a { color: var(--ink-soft); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">2026 Season</div>
+    <h1>🏌️ LIV Golf Stats</h1>
+    <p>Every player. Full points standings. Search, filter, sort.</p>
+  </header>
+
+  <div class="stat-strip">
+    <span><b id="statTotal"></b> players</span>
+    <span><b id="statTeams"></b> teams</span>
+    <span>Leader: <b id="statLeader"></b></span>
+  </div>
+
+  <div class="controls">
+    <input class="search-box" id="searchBox" type="text" placeholder="Search player or country…" autocomplete="off">
+    <select class="sort-select" id="sortSelect">
+      <option value="rank">Sort: Rank</option>
+      <option value="points">Sort: Points</option>
+      <option value="name">Sort: Name (A-Z)</option>
+      <option value="team">Sort: Team</option>
+    </select>
+  </div>
+
+  <div class="team-chips" id="teamChips"></div>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    Standings sourced from LIV Golf's official 2026 player standings (livgolf.com). Player photos from Wikimedia
+    Commons where freely licensed; players without one show a team-coloured initial instead of a stock photo.<br>
+    Not affiliated with or endorsed by LIV Golf.
+  </footer>
+</div>
+
+<script>
+const PLAYERS = [{"rank":1,"name":"Jon Rahm","country":"Spain","team":"Legion XIII","points":928.58,"flag":"🇪🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Jon_Rahm_Ryder_Cup_2025-130_%28cropped%29.jpg/500px-Jon_Rahm_Ryder_Cup_2025-130_%28cropped%29.jpg","colors":{"c1":"#0A1E3F","c2":"#C9A227"}},{"rank":2,"name":"Bryson DeChambeau","country":"USA","team":"Crushers GC","points":644.4,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/e/e9/Bryson_DeChambeau_%2854565799176%29.jpg","colors":{"c1":"#E8621A","c2":"#1A1A1A"}},{"rank":3,"name":"Joaquin Niemann","country":"Chile","team":"Torque GC","points":344.66,"flag":"🇨🇱","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Joaqu%C3%ADn_Niemann.jpg/500px-Joaqu%C3%ADn_Niemann.jpg","colors":{"c1":"#1A4C9C","c2":"#C41E3A"}},{"rank":4,"name":"Tyrrell Hatton","country":"England","team":"Legion XIII","points":332.93,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Tyrrell_Hatton_Ryder_Cup_2025-177_%28cropped%29.jpg/500px-Tyrrell_Hatton_Ryder_Cup_2025-177_%28cropped%29.jpg","colors":{"c1":"#0A1E3F","c2":"#C9A227"}},{"rank":5,"name":"Lucas Herbert","country":"Australia","team":"Ripper GC","points":331.23,"flag":"🇦🇺","image":null,"colors":{"c1":"#1E7A46","c2":"#D4AF37"}},{"rank":6,"name":"Thomas Detry","country":"Belgium","team":"4Aces GC","points":323.25,"flag":"🇧🇪","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/KLM_Open_2009_Thomas_Detry.JPG/500px-KLM_Open_2009_Thomas_Detry.JPG","colors":{"c1":"#111111","c2":"#D4AF37"}},{"rank":7,"name":"Anthony Kim","country":"USA","team":"4Aces GC","points":292.71,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/PGA_Championship_-_2009_-_Anthony_Kim_on_9_%283815895710%29_%28cropped%29.jpg/500px-PGA_Championship_-_2009_-_Anthony_Kim_on_9_%283815895710%29_%28cropped%29.jpg","colors":{"c1":"#111111","c2":"#D4AF37"}},{"rank":8,"name":"David Puig","country":"Spain","team":"Fireballs GC","points":284.24,"flag":"🇪🇸","image":null,"colors":{"c1":"#D32F2F","c2":"#F57C00"}},{"rank":9,"name":"Elvis Smylie","country":"Australia","team":"Ripper GC","points":265.6,"flag":"🇦🇺","image":null,"colors":{"c1":"#1E7A46","c2":"#D4AF37"}},{"rank":10,"name":"Sergio Garcia","country":"Spain","team":"Fireballs GC","points":233.5,"flag":"🇪🇸","image":"https://upload.wikimedia.org/wikipedia/commons/e/e5/Sergio_Garcia_2017.png","colors":{"c1":"#D32F2F","c2":"#F57C00"}},{"rank":11,"name":"Abraham Ancer","country":"Mexico","team":"Torque GC","points":232.61,"flag":"🇲🇽","image":null,"colors":{"c1":"#1A4C9C","c2":"#C41E3A"}},{"rank":12,"name":"Talor Gooch","country":"USA","team":"OKGC","points":208.7,"flag":"🇺🇸","image":null,"colors":{"c1":"#B22222","c2":"#FFFFFF"}},{"rank":13,"name":"Dean Burmester","country":"South Africa","team":"Southern Guards GC","points":199.05,"flag":"🇿🇦","image":"https://upload.wikimedia.org/wikipedia/en/thumb/b/b4/Dean_Burmester_signature.jpg/500px-Dean_Burmester_signature.jpg","colors":{"c1":"#1E5631","c2":"#C9A227"}},{"rank":14,"name":"Thomas Pieters","country":"Belgium","team":"4Aces GC","points":196.5,"flag":"🇧🇪","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Thomas_Pieters_KLM_Open_2015.png/500px-Thomas_Pieters_KLM_Open_2015.png","colors":{"c1":"#111111","c2":"#D4AF37"}},{"rank":15,"name":"Josele Ballester","country":"Spain","team":"Fireballs GC","points":195.98,"flag":"🇪🇸","image":null,"colors":{"c1":"#D32F2F","c2":"#F57C00"}},{"rank":16,"name":"Richard T. Lee","country":"Canada","team":"Wild Card","points":193.18,"flag":"🇨🇦","image":null,"colors":{"c1":"#555555","c2":"#999999"}},{"rank":17,"name":"Scott Vincent","country":"Zimbabwe","team":"HyFlyers GC","points":192.96,"flag":"🇿🇼","image":null,"colors":{"c1":"#1565C0","c2":"#FFFFFF"}},{"rank":18,"name":"Branden Grace","country":"South Africa","team":"Southern Guards GC","points":191.3,"flag":"🇿🇦","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Branden_Grace_2016_Qatar_Masters_Champion_%2Cphotos_by_Hanson_K_Joseph.jpg/500px-Branden_Grace_2016_Qatar_Masters_Champion_%2Cphotos_by_Hanson_K_Joseph.jpg","colors":{"c1":"#1E5631","c2":"#C9A227"}},{"rank":19,"name":"Peter Uihlein","country":"USA","team":"RangeGoats Golf Club","points":170.26,"flag":"🇺🇸","image":null,"colors":{"c1":"#3F6B3F","c2":"#6B4423"}},{"rank":20,"name":"Dustin Johnson","country":"USA","team":"4Aces GC","points":168.63,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Dustin_Johnson_-_2022.jpg/500px-Dustin_Johnson_-_2022.jpg","colors":{"c1":"#111111","c2":"#D4AF37"}},{"rank":21,"name":"Cameron Smith","country":"Australia","team":"Ripper GC","points":140.25,"flag":"🇦🇺","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Cameron_Smith_introductory_press_conference_%28cropped%29.jpg/500px-Cameron_Smith_introductory_press_conference_%28cropped%29.jpg","colors":{"c1":"#1E7A46","c2":"#D4AF37"}},{"rank":22,"name":"Harold Varner III","country":"USA","team":"OKGC","points":139.4,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/HaroldVarneriiigolfer.jpg/500px-HaroldVarneriiigolfer.jpg","colors":{"c1":"#B22222","c2":"#FFFFFF"}},{"rank":23,"name":"Marc Leishman","country":"Australia","team":"Ripper GC","points":139.11,"flag":"🇦🇺","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Leishman_2018_QLN.jpg/500px-Leishman_2018_QLN.jpg","colors":{"c1":"#1E7A46","c2":"#D4AF37"}},{"rank":24,"name":"Matthew Wolff","country":"USA","team":"RangeGoats Golf Club","points":128.5,"flag":"🇺🇸","image":null,"colors":{"c1":"#3F6B3F","c2":"#6B4423"}},{"rank":25,"name":"Carlos Ortiz","country":"Mexico","team":"Torque GC","points":127.6,"flag":"🇲🇽","image":null,"colors":{"c1":"#1A4C9C","c2":"#C41E3A"}},{"rank":26,"name":"Sebastian Muñoz","country":"Colombia","team":"Torque GC","points":118.5,"flag":"🇨🇴","image":null,"colors":{"c1":"#1A4C9C","c2":"#C41E3A"}},{"rank":27,"name":"Charles Howell III","country":"USA","team":"Crushers GC","points":118.42,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Charles_Howell_III_05.jpg/500px-Charles_Howell_III_05.jpg","colors":{"c1":"#E8621A","c2":"#1A1A1A"}},{"rank":28,"name":"Lee Westwood","country":"England","team":"Majesticks Golf Club","points":117.1,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Lee_Westwood_by_Eugene_Goh.jpg/500px-Lee_Westwood_by_Eugene_Goh.jpg","colors":{"c1":"#5B2E8C","c2":"#D4AF37"}},{"rank":29,"name":"Brendan Steele","country":"USA","team":"HyFlyers GC","points":109.53,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Open_de_France_2015_20.jpg/500px-Open_de_France_2015_20.jpg","colors":{"c1":"#1565C0","c2":"#FFFFFF"}},{"rank":30,"name":"Tom McKibbin","country":"Northern Ireland","team":"Legion XIII","points":108.52,"flag":"🇬🇧","image":null,"colors":{"c1":"#0A1E3F","c2":"#C9A227"}},{"rank":31,"name":"Victor Perez","country":"France","team":"Cleeks Golf Club","points":103.3,"flag":"🇫🇷","image":null,"colors":{"c1":"#0B2E5C","c2":"#FFFFFF"}},{"rank":32,"name":"Louis Oosthuizen","country":"South Africa","team":"Southern Guards GC","points":88.46,"flag":"🇿🇦","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Louis_Oosthuizen_victory.jpg/500px-Louis_Oosthuizen_victory.jpg","colors":{"c1":"#1E5631","c2":"#C9A227"}},{"rank":33,"name":"Byeong Hun An","country":"South Korea","team":"Korean Golf Club","points":87.4,"flag":"🇰🇷","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Byeong-hun_An.JPG/500px-Byeong-hun_An.JPG","colors":{"c1":"#C8102E","c2":"#003478"}},{"rank":34,"name":"Anirban Lahiri","country":"India","team":"Crushers GC","points":82.12,"flag":"🇮🇳","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Open_de_France_2015_11.jpg/500px-Open_de_France_2015_11.jpg","colors":{"c1":"#E8621A","c2":"#1A1A1A"}},{"rank":35,"name":"Caleb Surratt","country":"USA","team":"Legion XIII","points":80.92,"flag":"🇺🇸","image":null,"colors":{"c1":"#0A1E3F","c2":"#C9A227"}},{"rank":36,"name":"Charl Schwartzel","country":"South Africa","team":"Southern Guards GC","points":79.23,"flag":"🇿🇦","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Charl_Schwartzel.JPG/500px-Charl_Schwartzel.JPG","colors":{"c1":"#1E5631","c2":"#C9A227"}},{"rank":37,"name":"Bubba Watson","country":"USA","team":"RangeGoats Golf Club","points":79.2,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Bubba_Watson_2012.jpg/500px-Bubba_Watson_2012.jpg","colors":{"c1":"#3F6B3F","c2":"#6B4423"}},{"rank":38,"name":"Graeme McDowell","country":"Northern Ireland","team":"OKGC","points":77.68,"flag":"🇬🇧","image":"https://upload.wikimedia.org/wikipedia/commons/0/01/Graeme_McDowell_2012.jpg","colors":{"c1":"#B22222","c2":"#FFFFFF"}},{"rank":39,"name":"Younghan Song","country":"South Korea","team":"Korean Golf Club","points":76.78,"flag":"🇰🇷","image":null,"colors":{"c1":"#C8102E","c2":"#003478"}},{"rank":40,"name":"Jason Kokrak","country":"USA","team":"OKGC","points":74.3,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Jason_Kokrak_%282011%29.tiff/lossless-page1-120px-Jason_Kokrak_%282011%29.tiff.png","colors":{"c1":"#B22222","c2":"#FFFFFF"}},{"rank":41,"name":"Richard Bland","country":"England","team":"Cleeks Golf Club","points":72.85,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":"https://upload.wikimedia.org/wikipedia/commons/b/b7/Richard_Bland.jpg","colors":{"c1":"#0B2E5C","c2":"#FFFFFF"}},{"rank":42,"name":"Laurie Canter","country":"England","team":"Majesticks Golf Club","points":71.72,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Laurie_Canter_%28Galvin_Green%29.jpg/500px-Laurie_Canter_%28Galvin_Green%29.jpg","colors":{"c1":"#5B2E8C","c2":"#D4AF37"}},{"rank":43,"name":"Ian Poulter","country":"England","team":"Majesticks Golf Club","points":69.86,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Ian_Poulter-La_Temp%C3%AAte_01.jpg/500px-Ian_Poulter-La_Temp%C3%AAte_01.jpg","colors":{"c1":"#5B2E8C","c2":"#D4AF37"}},{"rank":44,"name":"Paul Casey","country":"England","team":"Crushers GC","points":69,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Paul_Casey_2008_US_Open_cropped.jpg/500px-Paul_Casey_2008_US_Open_cropped.jpg","colors":{"c1":"#E8621A","c2":"#1A1A1A"}},{"rank":45,"name":"Cameron Tringale","country":"USA","team":"HyFlyers GC","points":68.74,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Cameron_Tringale.jpg/500px-Cameron_Tringale.jpg","colors":{"c1":"#1565C0","c2":"#FFFFFF"}},{"rank":46,"name":"Yosuke Asaji","country":"Japan","team":"Wild Card","points":67.68,"flag":"🇯🇵","image":null,"colors":{"c1":"#555555","c2":"#999999"}},{"rank":47,"name":"Adrian Meronk","country":"Poland","team":"Cleeks Golf Club","points":67.03,"flag":"🇵🇱","image":null,"colors":{"c1":"#0B2E5C","c2":"#FFFFFF"}},{"rank":48,"name":"Luis Masaveu","country":"Spain","team":"Fireballs GC","points":66.06,"flag":"🇪🇸","image":null,"colors":{"c1":"#D32F2F","c2":"#F57C00"}},{"rank":49,"name":"Ben Campbell","country":"New Zealand","team":"RangeGoats Golf Club","points":60.65,"flag":"🇳🇿","image":null,"colors":{"c1":"#3F6B3F","c2":"#6B4423"}},{"rank":50,"name":"Michael La Sasso","country":"USA","team":"HyFlyers GC","points":49.21,"flag":"🇺🇸","image":null,"colors":{"c1":"#1565C0","c2":"#FFFFFF"}},{"rank":51,"name":"Martin Kaymer","country":"Germany","team":"Cleeks Golf Club","points":48.45,"flag":"🇩🇪","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/MartinKaymer2.jpg/500px-MartinKaymer2.jpg","colors":{"c1":"#0B2E5C","c2":"#FFFFFF"}},{"rank":52,"name":"Bjorn Hellgren","country":"Sweden","team":"Wild Card","points":42.31,"flag":"🇸🇪","image":null,"colors":{"c1":"#555555","c2":"#999999"}},{"rank":53,"name":"Danny Lee","country":"New Zealand","team":"Wild Card","points":41.27,"flag":"🇳🇿","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Danny_Lee.JPG/500px-Danny_Lee.JPG","colors":{"c1":"#555555","c2":"#999999"}},{"rank":54,"name":"Miguel Tabuena","country":"Philippines","team":"Wild Card","points":37.91,"flag":"🇵🇭","image":null,"colors":{"c1":"#555555","c2":"#999999"}},{"rank":55,"name":"Minkyu Kim","country":"South Korea","team":"Korean Golf Club","points":35.48,"flag":"🇰🇷","image":null,"colors":{"c1":"#C8102E","c2":"#003478"}},{"rank":56,"name":"Travis Smyth","country":"Australia","team":"Crushers GC","points":29.9,"flag":"🇦🇺","image":null,"colors":{"c1":"#E8621A","c2":"#1A1A1A"}},{"rank":57,"name":"Sam Horsfield","country":"England","team":"Majesticks Golf Club","points":28.02,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":null,"colors":{"c1":"#5B2E8C","c2":"#D4AF37"}},{"rank":58,"name":"Do-Yeob Mun","country":"South Korea","team":"Korean Golf Club","points":15.75,"flag":"🇰🇷","image":null,"colors":{"c1":"#C8102E","c2":"#003478"}},{"rank":59,"name":"Wade Ormsby","country":"Australia","team":"Reserve","points":15.4,"flag":"🇦🇺","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Wade_Ormsby.JPG/500px-Wade_Ormsby.JPG","colors":{"c1":"#777777","c2":"#AAAAAA"}},{"rank":60,"name":"Jeongwoo Ham","country":"South Korea","team":"Wild Card","points":10.75,"flag":"🇰🇷","image":null,"colors":{"c1":"#555555","c2":"#999999"}},{"rank":61,"name":"Ben Schmidt","country":"England","team":"Reserve","points":10.38,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":null,"colors":{"c1":"#777777","c2":"#AAAAAA"}},{"rank":62,"name":"Max Rottluff","country":"Germany","team":"Reserve","points":4.32,"flag":"🇩🇪","image":null,"colors":{"c1":"#777777","c2":"#AAAAAA"}},{"rank":63,"name":"Phil Mickelson","country":"USA","team":"HyFlyers GC","points":3.55,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Phil_Mickelson_15_%28cropped%29.jpg/500px-Phil_Mickelson_15_%28cropped%29.jpg","colors":{"c1":"#1565C0","c2":"#FFFFFF"}},{"rank":64,"name":"John Catlin","country":"USA","team":"Reserve","points":2.65,"flag":"🇺🇸","image":null,"colors":{"c1":"#777777","c2":"#AAAAAA"}},{"rank":65,"name":"Ollie Schniederjans","country":"USA","team":"Reserve","points":1.3,"flag":"🇺🇸","image":null,"colors":{"c1":"#777777","c2":"#AAAAAA"}}];
+
+let currentTeamFilter = "All";
+let currentSort = "rank";
+let currentSearch = "";
+
+function initials(name) {
+  return name.split(' ').filter(w => /^[A-Z]/.test(w)).map(w => w[0]).slice(0,2).join('');
+}
+
+function teamGradient(colors) {
+  return `linear-gradient(135deg, ${colors.c1} 0%, ${colors.c2} 100%)`;
+}
+
+function cardHtml(p) {
+  const photo = p.image
+    ? `<img src="${p.image}" alt="${p.name}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;initials-fallback&quot; style=&quot;background:${teamGradient(p.colors).replace(/"/g,'&quot;')}&quot;>${initials(p.name)}</div>'">`
+    : `<div class="initials-fallback" style="background:${teamGradient(p.colors)}">${initials(p.name)}</div>`;
+  return `
+    <div class="card">
+      <div class="card-photo">
+        ${photo}
+        <div class="rank-badge">#${p.rank}</div>
+      </div>
+      <div class="team-bar" style="background:${teamGradient(p.colors)}"></div>
+      <div class="card-body">
+        <div class="card-name">${p.name}</div>
+        <div class="card-team">${p.team}</div>
+        <div class="card-stats">
+          <span class="card-flag">${p.flag}</span>
+          <span class="card-points">${p.points.toFixed(2)} pts</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function render() {
+  let list = PLAYERS.slice();
+
+  if (currentTeamFilter !== "All") {
+    list = list.filter(p => p.team === currentTeamFilter);
+  }
+  if (currentSearch) {
+    const q = currentSearch.toLowerCase();
+    list = list.filter(p => p.name.toLowerCase().includes(q) || p.country.toLowerCase().includes(q) || p.team.toLowerCase().includes(q));
+  }
+
+  if (currentSort === "rank") list.sort((a,b) => a.rank - b.rank);
+  else if (currentSort === "points") list.sort((a,b) => b.points - a.points);
+  else if (currentSort === "name") list.sort((a,b) => a.name.localeCompare(b.name));
+  else if (currentSort === "team") list.sort((a,b) => a.team.localeCompare(b.team) || a.rank - b.rank);
+
+  const grid = document.getElementById("grid");
+  grid.innerHTML = list.length ? list.map(cardHtml).join('') : '<div class="empty-note">No players match that search.</div>';
+}
+
+function buildTeamChips() {
+  const teams = [...new Set(PLAYERS.map(p => p.team))].sort();
+  const container = document.getElementById("teamChips");
+  const allChip = `<button class="team-chip active" data-team="All">All Teams</button>`;
+  const chips = teams.map(t => `<button class="team-chip" data-team="${t}">${t}</button>`).join('');
+  container.innerHTML = allChip + chips;
+  container.querySelectorAll(".team-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      container.querySelectorAll(".team-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      currentTeamFilter = chip.dataset.team;
+      render();
+    });
+  });
+}
+
+document.getElementById("searchBox").addEventListener("input", (e) => {
+  currentSearch = e.target.value;
+  render();
+});
+document.getElementById("sortSelect").addEventListener("change", (e) => {
+  currentSort = e.target.value;
+  render();
+});
+
+document.getElementById("statTotal").textContent = PLAYERS.length;
+document.getElementById("statTeams").textContent = new Set(PLAYERS.map(p => p.team)).size;
+document.getElementById("statLeader").textContent = PLAYERS.slice().sort((a,b) => a.rank - b.rank)[0].name;
+
+buildTeamChips();
+render();
+</script>
+</body>
+</html>
