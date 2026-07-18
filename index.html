@@ -32,12 +32,13 @@
   .sort-select { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px;
     color: var(--ink); font-size: 0.88rem; font-family: inherit; }
 
-  .team-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+  .team-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 18px; }
   .team-chip {
-    background: var(--surface); border: 1px solid var(--line); color: var(--ink-soft); font-size: 0.74rem; font-weight: 700;
-    padding: 6px 12px; border-radius: 999px; cursor: pointer; font-family: inherit; white-space: nowrap;
+    aspect-ratio: 1; width: 100%; border-radius: 50%; border: 2px solid transparent; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 800; color: #fff;
+    text-align: center; line-height: 1.05; padding: 2px; box-shadow: var(--shadow);
   }
-  .team-chip.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .team-chip.active { border-color: var(--ink); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
 
   .stat-strip { display: flex; justify-content: center; gap: 26px; margin-bottom: 4px; color: var(--ink-soft); font-size: 0.78rem; }
   .stat-strip b { color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -772,11 +773,23 @@ function render() {
   grid.innerHTML = list.length ? list.map(cardHtml).join('') : '<div class="empty-note">No players match that search.</div>';
 }
 
+const TEAM_ABBREV = {
+  "4Aces GC": "4A", "Cleeks Golf Club": "CK", "Crushers GC": "CR", "Fireballs GC": "FB",
+  "HyFlyers GC": "HF", "Korean Golf Club": "KR", "Legion XIII": "LG", "Majesticks Golf Club": "MJ",
+  "OKGC": "OK", "RangeGoats Golf Club": "RG", "Ripper GC": "RP", "Southern Guards GC": "SG",
+  "Torque GC": "TQ", "Wild Card": "WC", "Reserve": "RS",
+};
+
 function buildTeamChips() {
   const teams = [...new Set(PLAYERS.map(p => p.team))].sort();
   const container = document.getElementById("teamChips");
-  const allChip = `<button class="team-chip active" data-team="All">All Teams</button>`;
-  const chips = teams.map(t => `<button class="team-chip" data-team="${t}">${t}</button>`).join('');
+  const allChip = `<button class="team-chip active" data-team="All" title="All Teams" style="background:linear-gradient(135deg,#4A4A4A,#7A7A7A)">All</button>`;
+  const chips = teams.map(t => {
+    const rep = PLAYERS.find(p => p.team === t);
+    const grad = teamGradient(rep.colors);
+    const abbrev = TEAM_ABBREV[t] || t.slice(0, 2).toUpperCase();
+    return `<button class="team-chip" data-team="${t}" title="${t}" style="background:${grad}">${abbrev}</button>`;
+  }).join('');
   container.innerHTML = allChip + chips;
   container.querySelectorAll(".team-chip").forEach(chip => {
     chip.addEventListener("click", () => {
