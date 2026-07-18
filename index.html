@@ -68,6 +68,57 @@
   .empty-note { text-align: center; color: var(--ink-soft); padding: 40px 10px; grid-column: 1 / -1; }
   footer { text-align: center; color: var(--ink-soft); font-size: 0.74rem; margin-top: 30px; line-height: 1.7; }
   footer a { color: var(--ink-soft); }
+
+  /* --- Tab bar --- */
+  .tab-bar { display: flex; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 4px; margin: 0 0 18px; }
+  .tab-btn { flex: 1; background: transparent; border: none; color: var(--ink-soft); font-weight: 800; font-size: 0.85rem;
+    padding: 10px 8px; border-radius: 11px; cursor: pointer; font-family: inherit; }
+  .tab-btn.active { background: var(--accent); color: var(--accent-ink); }
+
+  /* --- My Day view --- */
+  .day-actions { display: flex; gap: 10px; margin-bottom: 18px; }
+  .day-action-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 16px; padding: 16px 10px; color: var(--ink); font-family: inherit;
+    font-weight: 800; font-size: 0.82rem; cursor: pointer; box-shadow: var(--shadow); }
+  .day-action-btn .icon { font-size: 1.6rem; }
+  .day-empty { text-align: center; color: var(--ink-soft); padding: 40px 16px; }
+  .day-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .day-tile { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+    box-shadow: var(--shadow); position: relative; }
+  .day-tile .thumb { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--surface); }
+  .day-tile .thumb.sig-thumb { object-fit: contain; background: #fff; padding: 10px; }
+  .day-tile .kind-badge { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.65); color: #fff;
+    font-size: 0.68rem; font-weight: 800; padding: 3px 8px; border-radius: 999px; }
+  .day-tile .del-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.65); color: #fff; border: none;
+    width: 24px; height: 24px; border-radius: 999px; font-size: 0.85rem; cursor: pointer; line-height: 1; }
+  .day-tile .meta { padding: 9px 10px 11px; }
+  .day-tile .meta-player { font-weight: 800; font-size: 0.82rem; margin-bottom: 3px; }
+  .day-tile .meta-time { font-size: 0.68rem; color: var(--ink-soft); margin-bottom: 2px; }
+  .day-tile .meta-loc { font-size: 0.68rem; color: var(--ink-soft); }
+
+  /* --- Modal --- */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(6,8,12,0.72); display: flex; align-items: center;
+    justify-content: center; padding: 16px; z-index: 50; }
+  .modal-overlay[hidden] { display: none; }
+  .modal-box { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 20px;
+    max-width: 420px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  .modal-box h3 { margin: 0 0 14px; font-size: 1.05rem; }
+  .modal-field { margin-bottom: 14px; }
+  .modal-field label { display: block; font-size: 0.76rem; font-weight: 700; color: var(--ink-soft); margin-bottom: 5px; }
+  .modal-field input[type="text"], .modal-field select { width: 100%; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px 12px; color: var(--ink); font-size: 0.9rem; font-family: inherit; }
+  .sig-pad-wrap { border: 1px dashed var(--line); border-radius: 12px; background: #fff; touch-action: none; }
+  #sigCanvas { display: block; width: 100%; height: 180px; touch-action: none; cursor: crosshair; }
+  .modal-photo-preview { width: 100%; max-height: 220px; object-fit: contain; border-radius: 12px; margin-bottom: 12px;
+    background: var(--card); }
+  .modal-geo-note { font-size: 0.72rem; color: var(--ink-soft); margin: 10px 0 14px; line-height: 1.5; }
+  .modal-actions { display: flex; gap: 8px; }
+  .modal-actions button { flex: 1; border: none; border-radius: 11px; padding: 11px 8px; font-weight: 800;
+    font-size: 0.85rem; cursor: pointer; font-family: inherit; }
+  .btn-cancel { background: var(--card); color: var(--ink); border: 1px solid var(--line) !important; }
+  .btn-clear { background: var(--card); color: var(--ink); border: 1px solid var(--line) !important; }
+  .btn-save { background: var(--accent); color: var(--accent-ink); }
 </style>
 </head>
 <body>
@@ -79,31 +130,94 @@
     <p>Every player. Full points standings. Search, filter, sort.</p>
   </header>
 
-  <div class="stat-strip">
-    <span><b id="statTotal"></b> players</span>
-    <span><b id="statTeams"></b> teams</span>
-    <span>Leader: <b id="statLeader"></b></span>
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tabPlayersBtn">Players</button>
+    <button class="tab-btn" id="tabDayBtn">My Day</button>
   </div>
 
-  <div class="controls">
-    <input class="search-box" id="searchBox" type="text" placeholder="Search player or country…" autocomplete="off">
-    <select class="sort-select" id="sortSelect">
-      <option value="rank">Sort: Rank</option>
-      <option value="points">Sort: Points</option>
-      <option value="name">Sort: Name (A-Z)</option>
-      <option value="team">Sort: Team</option>
-    </select>
+  <div id="playersView">
+    <div class="stat-strip">
+      <span><b id="statTotal"></b> players</span>
+      <span><b id="statTeams"></b> teams</span>
+      <span>Leader: <b id="statLeader"></b></span>
+    </div>
+
+    <div class="controls">
+      <input class="search-box" id="searchBox" type="text" placeholder="Search player or country…" autocomplete="off">
+      <select class="sort-select" id="sortSelect">
+        <option value="rank">Sort: Rank</option>
+        <option value="points">Sort: Points</option>
+        <option value="name">Sort: Name (A-Z)</option>
+        <option value="team">Sort: Team</option>
+      </select>
+    </div>
+
+    <div class="team-chips" id="teamChips"></div>
+
+    <div class="grid" id="grid"></div>
   </div>
 
-  <div class="team-chips" id="teamChips"></div>
-
-  <div class="grid" id="grid"></div>
+  <div id="dayView" hidden>
+    <div class="day-actions">
+      <button class="day-action-btn" id="addPhotoBtn"><span class="icon">📷</span>Add Photo</button>
+      <button class="day-action-btn" id="addAutographBtn"><span class="icon">✍️</span>Get Autograph</button>
+    </div>
+    <div id="dayGrid" class="day-grid"></div>
+  </div>
 
   <footer>
     Standings sourced from LIV Golf's official 2026 player standings (livgolf.com). Player photos from Wikimedia
     Commons where freely licensed; players without one show a team-coloured initial instead of a stock photo.<br>
-    Not affiliated with or endorsed by LIV Golf.
+    Not affiliated with or endorsed by LIV Golf. Photos and autographs stay only on this device.
   </footer>
+</div>
+
+<input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
+
+<!-- Photo caption modal -->
+<div class="modal-overlay" id="photoModal" hidden>
+  <div class="modal-box">
+    <h3>Save Photo</h3>
+    <img id="photoPreview" class="modal-photo-preview" alt="Preview">
+    <div class="modal-field">
+      <label for="photoPlayerSelect">Player (optional)</label>
+      <select id="photoPlayerSelect"><option value="">— none —</option></select>
+    </div>
+    <div class="modal-field">
+      <label for="photoCaption">Caption (optional)</label>
+      <input type="text" id="photoCaption" placeholder="e.g. 17th hole, first tee...">
+    </div>
+    <div class="modal-geo-note" id="photoGeoNote">📍 Getting location…</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="photoCancelBtn">Cancel</button>
+      <button class="btn-save" id="photoSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Autograph modal -->
+<div class="modal-overlay" id="sigModal" hidden>
+  <div class="modal-box">
+    <h3>Get Autograph</h3>
+    <div class="modal-field">
+      <label for="sigPlayerSelect">Player</label>
+      <select id="sigPlayerSelect"><option value="">— pick or type below —</option></select>
+    </div>
+    <div class="modal-field">
+      <label for="sigPlayerFree">Or type a name</label>
+      <input type="text" id="sigPlayerFree" placeholder="e.g. someone not on the roster">
+    </div>
+    <div class="modal-field">
+      <label>Signature — sign with your finger</label>
+      <div class="sig-pad-wrap"><canvas id="sigCanvas"></canvas></div>
+    </div>
+    <div class="modal-geo-note" id="sigGeoNote">📍 Getting location…</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="sigCancelBtn">Cancel</button>
+      <button class="btn-clear" id="sigClearBtn">Clear</button>
+      <button class="btn-save" id="sigSaveBtn">Save</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -112,6 +226,260 @@ const PLAYERS = [{"rank":1,"name":"Jon Rahm","country":"Spain","team":"Legion XI
 let currentTeamFilter = "All";
 let currentSort = "rank";
 let currentSearch = "";
+
+// ---- Tab switching ----
+const tabPlayersBtn = document.getElementById("tabPlayersBtn");
+const tabDayBtn = document.getElementById("tabDayBtn");
+const playersView = document.getElementById("playersView");
+const dayView = document.getElementById("dayView");
+
+tabPlayersBtn.addEventListener("click", () => {
+  tabPlayersBtn.classList.add("active"); tabDayBtn.classList.remove("active");
+  playersView.hidden = false; dayView.hidden = true;
+});
+tabDayBtn.addEventListener("click", () => {
+  tabDayBtn.classList.add("active"); tabPlayersBtn.classList.remove("active");
+  dayView.hidden = false; playersView.hidden = true;
+  renderDayGrid();
+});
+
+// ---- IndexedDB: photos + autographs for "My Day" ----
+let dbPromise = null;
+function openDb() {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open("livGolfDay", 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("entries")) {
+        db.createObjectStore("entries", { keyPath: "id", autoIncrement: true });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return dbPromise;
+}
+async function addEntry(entry) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("entries", "readwrite");
+    tx.objectStore("entries").add(entry);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function getAllEntries() {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("entries", "readonly");
+    const req = tx.objectStore("entries").getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function deleteEntry(id) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("entries", "readwrite");
+    tx.objectStore("entries").delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ---- Geolocation + reverse geocoding ----
+function getGeoStamp(noteEl) {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { noteEl.textContent = "📍 Location not available on this device."; resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude, lon = pos.coords.longitude;
+        noteEl.textContent = `📍 ${lat.toFixed(4)}, ${lon.toFixed(4)} — looking up place name…`;
+        let place = null;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=16`, { signal: AbortSignal.timeout(6000) });
+          const j = await res.json();
+          place = j && j.display_name ? j.display_name.split(',').slice(0, 3).join(',') : null;
+        } catch (e) { /* offline — coords only */ }
+        noteEl.textContent = place ? `📍 ${place}` : `📍 ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+        resolve({ lat, lon, place });
+      },
+      () => { noteEl.textContent = "📍 Location unavailable — saved without geo-stamp."; resolve(null); },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+}
+
+function populatePlayerSelects() {
+  const names = PLAYERS.slice().sort((a,b) => a.name.localeCompare(b.name)).map(p => p.name);
+  const opts = names.map(n => `<option value="${n}">${n}</option>`).join('');
+  document.getElementById("photoPlayerSelect").innerHTML += opts;
+  document.getElementById("sigPlayerSelect").innerHTML += opts;
+}
+
+function fmtEntryTime(t) {
+  const d = new Date(t);
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" }) + " · " +
+    d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
+async function renderDayGrid() {
+  const grid = document.getElementById("dayGrid");
+  const entries = (await getAllEntries()).sort((a,b) => b.t - a.t);
+  if (!entries.length) {
+    grid.innerHTML = '<div class="empty-note" style="grid-column:1/-1">No photos or autographs yet — tap a button above to add one.</div>';
+    return;
+  }
+  grid.innerHTML = entries.map(e => {
+    const thumb = e.kind === "photo"
+      ? `<img class="thumb" src="${e.image}" alt="Photo">`
+      : `<img class="thumb sig-thumb" src="${e.image}" alt="Signature">`;
+    const player = e.player ? `<div class="meta-player">${e.player}</div>` : (e.caption ? `<div class="meta-player">${e.caption}</div>` : '');
+    const loc = e.place || (e.lat != null ? `${e.lat.toFixed(3)}, ${e.lon.toFixed(3)}` : "No location");
+    return `<div class="day-tile" data-id="${e.id}">
+      ${thumb}
+      <div class="kind-badge">${e.kind === "photo" ? "📷 Photo" : "✍️ Autograph"}</div>
+      <button class="del-btn" data-del="${e.id}">×</button>
+      <div class="meta">
+        ${player}
+        <div class="meta-time">${fmtEntryTime(e.t)}</div>
+        <div class="meta-loc">${loc}</div>
+      </div>
+    </div>`;
+  }).join('');
+  grid.querySelectorAll("[data-del]").forEach(btn => {
+    btn.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      if (!confirm("Delete this entry?")) return;
+      await deleteEntry(Number(btn.dataset.del));
+      renderDayGrid();
+    });
+  });
+}
+
+// ---- Photo capture flow ----
+const photoInput = document.getElementById("photoInput");
+const photoModal = document.getElementById("photoModal");
+let pendingPhotoDataUrl = null;
+let pendingPhotoGeo = null;
+
+document.getElementById("addPhotoBtn").addEventListener("click", () => photoInput.click());
+
+photoInput.addEventListener("change", () => {
+  const file = photoInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    pendingPhotoDataUrl = reader.result;
+    document.getElementById("photoPreview").src = pendingPhotoDataUrl;
+    document.getElementById("photoCaption").value = "";
+    document.getElementById("photoPlayerSelect").value = "";
+    photoModal.hidden = false;
+    const note = document.getElementById("photoGeoNote");
+    note.textContent = "📍 Getting location…";
+    pendingPhotoGeo = null;
+    getGeoStamp(note).then(geo => { pendingPhotoGeo = geo; });
+  };
+  reader.readAsDataURL(file);
+  photoInput.value = "";
+});
+
+document.getElementById("photoCancelBtn").addEventListener("click", () => { photoModal.hidden = true; });
+
+document.getElementById("photoSaveBtn").addEventListener("click", async () => {
+  if (!pendingPhotoDataUrl) return;
+  await addEntry({
+    kind: "photo", image: pendingPhotoDataUrl, t: Date.now(),
+    player: document.getElementById("photoPlayerSelect").value || null,
+    caption: document.getElementById("photoCaption").value || null,
+    lat: pendingPhotoGeo ? pendingPhotoGeo.lat : null,
+    lon: pendingPhotoGeo ? pendingPhotoGeo.lon : null,
+    place: pendingPhotoGeo ? pendingPhotoGeo.place : null,
+  });
+  photoModal.hidden = true;
+  pendingPhotoDataUrl = null;
+  renderDayGrid();
+});
+
+// ---- Signature capture flow ----
+const sigModal = document.getElementById("sigModal");
+const sigCanvas = document.getElementById("sigCanvas");
+const sigCtx = sigCanvas.getContext("2d");
+let sigDrawing = false;
+let sigHasStroke = false;
+let pendingSigGeo = null;
+
+function sizeSigCanvas() {
+  const rect = sigCanvas.getBoundingClientRect();
+  sigCanvas.width = rect.width * devicePixelRatio;
+  sigCanvas.height = rect.height * devicePixelRatio;
+  sigCtx.scale(devicePixelRatio, devicePixelRatio);
+  sigCtx.lineWidth = 2.5;
+  sigCtx.lineCap = "round";
+  sigCtx.strokeStyle = "#12151C";
+}
+
+function sigPos(ev) {
+  const rect = sigCanvas.getBoundingClientRect();
+  const point = ev.touches ? ev.touches[0] : ev;
+  return { x: point.clientX - rect.left, y: point.clientY - rect.top };
+}
+function sigStart(ev) {
+  ev.preventDefault();
+  sigDrawing = true; sigHasStroke = true;
+  const p = sigPos(ev);
+  sigCtx.beginPath();
+  sigCtx.moveTo(p.x, p.y);
+}
+function sigMove(ev) {
+  if (!sigDrawing) return;
+  ev.preventDefault();
+  const p = sigPos(ev);
+  sigCtx.lineTo(p.x, p.y);
+  sigCtx.stroke();
+}
+function sigEnd() { sigDrawing = false; }
+
+sigCanvas.addEventListener("mousedown", sigStart);
+sigCanvas.addEventListener("mousemove", sigMove);
+window.addEventListener("mouseup", sigEnd);
+sigCanvas.addEventListener("touchstart", sigStart, { passive: false });
+sigCanvas.addEventListener("touchmove", sigMove, { passive: false });
+sigCanvas.addEventListener("touchend", sigEnd);
+
+document.getElementById("addAutographBtn").addEventListener("click", () => {
+  document.getElementById("sigPlayerSelect").value = "";
+  document.getElementById("sigPlayerFree").value = "";
+  sigModal.hidden = false;
+  sizeSigCanvas();
+  sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+  sigHasStroke = false;
+  const note = document.getElementById("sigGeoNote");
+  note.textContent = "📍 Getting location…";
+  pendingSigGeo = null;
+  getGeoStamp(note).then(geo => { pendingSigGeo = geo; });
+});
+
+document.getElementById("sigClearBtn").addEventListener("click", () => {
+  sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+  sigHasStroke = false;
+});
+document.getElementById("sigCancelBtn").addEventListener("click", () => { sigModal.hidden = true; });
+
+document.getElementById("sigSaveBtn").addEventListener("click", async () => {
+  if (!sigHasStroke) { alert("Please sign in the box first."); return; }
+  const player = document.getElementById("sigPlayerFree").value.trim() || document.getElementById("sigPlayerSelect").value || null;
+  await addEntry({
+    kind: "autograph", image: sigCanvas.toDataURL("image/png"), t: Date.now(),
+    player, caption: null,
+    lat: pendingSigGeo ? pendingSigGeo.lat : null,
+    lon: pendingSigGeo ? pendingSigGeo.lon : null,
+    place: pendingSigGeo ? pendingSigGeo.place : null,
+  });
+  sigModal.hidden = true;
+  renderDayGrid();
+});
 
 function initials(name) {
   return name.split(' ').filter(w => /^[A-Z]/.test(w)).map(w => w[0]).slice(0,2).join('');
@@ -194,6 +562,7 @@ document.getElementById("statLeader").textContent = PLAYERS.slice().sort((a,b) =
 
 buildTeamChips();
 render();
+populatePlayerSelects();
 </script>
 </body>
 </html>
