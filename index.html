@@ -108,7 +108,8 @@
   .day-empty { text-align: center; color: var(--ink-soft); padding: 40px 16px; }
   .day-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
   .day-tile { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
-    box-shadow: var(--shadow); position: relative; }
+    box-shadow: var(--shadow); position: relative; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .day-tile:active { transform: scale(0.97); }
   .day-tile .thumb { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--surface); }
   .day-tile .thumb.sig-thumb { object-fit: contain; background: #fff; padding: 10px; }
   .day-tile .kind-badge { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.65); color: #fff;
@@ -145,6 +146,24 @@
   .btn-cancel { background: var(--card); color: var(--ink); border: 1px solid var(--line) !important; }
   .btn-clear { background: var(--card); color: var(--ink); border: 1px solid var(--line) !important; }
   .btn-save { background: var(--accent); color: var(--accent-ink); }
+
+  /* Full-image viewer */
+  .viewer-overlay { position: fixed; inset: 0; background: rgba(4,5,9,0.92); display: flex; align-items: center;
+    justify-content: center; padding: 16px; z-index: 70; }
+  .viewer-overlay[hidden] { display: none; }
+  .viewer-box { max-width: 480px; width: 100%; max-height: 92vh; display: flex; flex-direction: column; align-items: center; }
+  .viewer-img-wrap { width: 100%; max-height: 62vh; display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border-radius: 16px; overflow: hidden; }
+  .viewer-img-wrap img { max-width: 100%; max-height: 62vh; object-fit: contain; display: block; }
+  .viewer-meta { width: 100%; background: var(--surface); border: 1px solid var(--line); border-top: none;
+    border-radius: 0 0 16px 16px; padding: 14px 16px; margin-top: -1px; }
+  .viewer-meta .vm-player { font-weight: 800; font-size: 1rem; margin-bottom: 3px; }
+  .viewer-meta .vm-time, .viewer-meta .vm-loc { font-size: 0.76rem; color: var(--ink-soft); }
+  .viewer-actions { display: flex; gap: 8px; width: 100%; margin-top: 12px; }
+  .viewer-actions button { flex: 1; border: none; border-radius: 12px; padding: 12px; font-weight: 800; font-size: 0.85rem;
+    cursor: pointer; font-family: inherit; }
+  .viewer-save-btn { background: var(--accent); color: var(--accent-ink); }
+  .viewer-close-btn { background: var(--surface); border: 1px solid var(--line) !important; color: var(--ink); }
 </style>
 </head>
 <body>
@@ -271,6 +290,22 @@
   </div>
 </div>
 
+<!-- Full-image viewer for My Day photos/autographs -->
+<div class="viewer-overlay" id="viewerOverlay" hidden>
+  <div class="viewer-box">
+    <div class="viewer-img-wrap"><img id="viewerImg" alt=""></div>
+    <div class="viewer-meta">
+      <div class="vm-player" id="viewerPlayer"></div>
+      <div class="vm-time" id="viewerTime"></div>
+      <div class="vm-loc" id="viewerLoc"></div>
+    </div>
+    <div class="viewer-actions">
+      <button class="viewer-save-btn" id="viewerSaveBtn">Save to gallery</button>
+      <button class="viewer-close-btn" id="viewerCloseBtn">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const PLAYERS = [{"rank":1,"name":"Jon Rahm","country":"Spain","team":"Legion XIII","points":928.58,"flag":"🇪🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Jon_Rahm_Ryder_Cup_2025-130_%28cropped%29.jpg/500px-Jon_Rahm_Ryder_Cup_2025-130_%28cropped%29.jpg","colors":{"c1":"#0A1E3F","c2":"#C9A227"}},{"rank":2,"name":"Bryson DeChambeau","country":"USA","team":"Crushers GC","points":644.4,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/e/e9/Bryson_DeChambeau_%2854565799176%29.jpg","colors":{"c1":"#E8621A","c2":"#1A1A1A"}},{"rank":3,"name":"Joaquin Niemann","country":"Chile","team":"Torque GC","points":344.66,"flag":"🇨🇱","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/Joaqu%C3%ADn_Niemann.jpg/500px-Joaqu%C3%ADn_Niemann.jpg","colors":{"c1":"#1A4C9C","c2":"#C41E3A"}},{"rank":4,"name":"Tyrrell Hatton","country":"England","team":"Legion XIII","points":332.93,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/Tyrrell_Hatton_Ryder_Cup_2025-177_%28cropped%29.jpg/500px-Tyrrell_Hatton_Ryder_Cup_2025-177_%28cropped%29.jpg","colors":{"c1":"#0A1E3F","c2":"#C9A227"}},{"rank":5,"name":"Lucas Herbert","country":"Australia","team":"Ripper GC","points":331.23,"flag":"🇦🇺","image":null,"colors":{"c1":"#1E7A46","c2":"#D4AF37"}},{"rank":6,"name":"Thomas Detry","country":"Belgium","team":"4Aces GC","points":323.25,"flag":"🇧🇪","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/9/90/KLM_Open_2009_Thomas_Detry.JPG/500px-KLM_Open_2009_Thomas_Detry.JPG","colors":{"c1":"#111111","c2":"#D4AF37"}},{"rank":7,"name":"Anthony Kim","country":"USA","team":"4Aces GC","points":292.71,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/PGA_Championship_-_2009_-_Anthony_Kim_on_9_%283815895710%29_%28cropped%29.jpg/500px-PGA_Championship_-_2009_-_Anthony_Kim_on_9_%283815895710%29_%28cropped%29.jpg","colors":{"c1":"#111111","c2":"#D4AF37"}},{"rank":8,"name":"David Puig","country":"Spain","team":"Fireballs GC","points":284.24,"flag":"🇪🇸","image":null,"colors":{"c1":"#D32F2F","c2":"#F57C00"}},{"rank":9,"name":"Elvis Smylie","country":"Australia","team":"Ripper GC","points":265.6,"flag":"🇦🇺","image":null,"colors":{"c1":"#1E7A46","c2":"#D4AF37"}},{"rank":10,"name":"Sergio Garcia","country":"Spain","team":"Fireballs GC","points":233.5,"flag":"🇪🇸","image":"https://upload.wikimedia.org/wikipedia/commons/e/e5/Sergio_Garcia_2017.png","colors":{"c1":"#D32F2F","c2":"#F57C00"}},{"rank":11,"name":"Abraham Ancer","country":"Mexico","team":"Torque GC","points":232.61,"flag":"🇲🇽","image":null,"colors":{"c1":"#1A4C9C","c2":"#C41E3A"}},{"rank":12,"name":"Talor Gooch","country":"USA","team":"OKGC","points":208.7,"flag":"🇺🇸","image":null,"colors":{"c1":"#B22222","c2":"#FFFFFF"}},{"rank":13,"name":"Dean Burmester","country":"South Africa","team":"Southern Guards GC","points":199.05,"flag":"🇿🇦","image":"https://upload.wikimedia.org/wikipedia/en/thumb/b/b4/Dean_Burmester_signature.jpg/500px-Dean_Burmester_signature.jpg","colors":{"c1":"#1E5631","c2":"#C9A227"}},{"rank":14,"name":"Thomas Pieters","country":"Belgium","team":"4Aces GC","points":196.5,"flag":"🇧🇪","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Thomas_Pieters_KLM_Open_2015.png/500px-Thomas_Pieters_KLM_Open_2015.png","colors":{"c1":"#111111","c2":"#D4AF37"}},{"rank":15,"name":"Josele Ballester","country":"Spain","team":"Fireballs GC","points":195.98,"flag":"🇪🇸","image":null,"colors":{"c1":"#D32F2F","c2":"#F57C00"}},{"rank":16,"name":"Richard T. Lee","country":"Canada","team":"Wild Card","points":193.18,"flag":"🇨🇦","image":null,"colors":{"c1":"#555555","c2":"#999999"}},{"rank":17,"name":"Scott Vincent","country":"Zimbabwe","team":"HyFlyers GC","points":192.96,"flag":"🇿🇼","image":null,"colors":{"c1":"#1565C0","c2":"#FFFFFF"}},{"rank":18,"name":"Branden Grace","country":"South Africa","team":"Southern Guards GC","points":191.3,"flag":"🇿🇦","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Branden_Grace_2016_Qatar_Masters_Champion_%2Cphotos_by_Hanson_K_Joseph.jpg/500px-Branden_Grace_2016_Qatar_Masters_Champion_%2Cphotos_by_Hanson_K_Joseph.jpg","colors":{"c1":"#1E5631","c2":"#C9A227"}},{"rank":19,"name":"Peter Uihlein","country":"USA","team":"RangeGoats Golf Club","points":170.26,"flag":"🇺🇸","image":null,"colors":{"c1":"#3F6B3F","c2":"#6B4423"}},{"rank":20,"name":"Dustin Johnson","country":"USA","team":"4Aces GC","points":168.63,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Dustin_Johnson_-_2022.jpg/500px-Dustin_Johnson_-_2022.jpg","colors":{"c1":"#111111","c2":"#D4AF37"}},{"rank":21,"name":"Cameron Smith","country":"Australia","team":"Ripper GC","points":140.25,"flag":"🇦🇺","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Cameron_Smith_introductory_press_conference_%28cropped%29.jpg/500px-Cameron_Smith_introductory_press_conference_%28cropped%29.jpg","colors":{"c1":"#1E7A46","c2":"#D4AF37"}},{"rank":22,"name":"Harold Varner III","country":"USA","team":"OKGC","points":139.4,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/HaroldVarneriiigolfer.jpg/500px-HaroldVarneriiigolfer.jpg","colors":{"c1":"#B22222","c2":"#FFFFFF"}},{"rank":23,"name":"Marc Leishman","country":"Australia","team":"Ripper GC","points":139.11,"flag":"🇦🇺","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Leishman_2018_QLN.jpg/500px-Leishman_2018_QLN.jpg","colors":{"c1":"#1E7A46","c2":"#D4AF37"}},{"rank":24,"name":"Matthew Wolff","country":"USA","team":"RangeGoats Golf Club","points":128.5,"flag":"🇺🇸","image":null,"colors":{"c1":"#3F6B3F","c2":"#6B4423"}},{"rank":25,"name":"Carlos Ortiz","country":"Mexico","team":"Torque GC","points":127.6,"flag":"🇲🇽","image":null,"colors":{"c1":"#1A4C9C","c2":"#C41E3A"}},{"rank":26,"name":"Sebastian Muñoz","country":"Colombia","team":"Torque GC","points":118.5,"flag":"🇨🇴","image":null,"colors":{"c1":"#1A4C9C","c2":"#C41E3A"}},{"rank":27,"name":"Charles Howell III","country":"USA","team":"Crushers GC","points":118.42,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/Charles_Howell_III_05.jpg/500px-Charles_Howell_III_05.jpg","colors":{"c1":"#E8621A","c2":"#1A1A1A"}},{"rank":28,"name":"Lee Westwood","country":"England","team":"Majesticks Golf Club","points":117.1,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Lee_Westwood_by_Eugene_Goh.jpg/500px-Lee_Westwood_by_Eugene_Goh.jpg","colors":{"c1":"#5B2E8C","c2":"#D4AF37"}},{"rank":29,"name":"Brendan Steele","country":"USA","team":"HyFlyers GC","points":109.53,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/e/ef/Open_de_France_2015_20.jpg/500px-Open_de_France_2015_20.jpg","colors":{"c1":"#1565C0","c2":"#FFFFFF"}},{"rank":30,"name":"Tom McKibbin","country":"Northern Ireland","team":"Legion XIII","points":108.52,"flag":"🇬🇧","image":null,"colors":{"c1":"#0A1E3F","c2":"#C9A227"}},{"rank":31,"name":"Victor Perez","country":"France","team":"Cleeks Golf Club","points":103.3,"flag":"🇫🇷","image":null,"colors":{"c1":"#0B2E5C","c2":"#FFFFFF"}},{"rank":32,"name":"Louis Oosthuizen","country":"South Africa","team":"Southern Guards GC","points":88.46,"flag":"🇿🇦","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Louis_Oosthuizen_victory.jpg/500px-Louis_Oosthuizen_victory.jpg","colors":{"c1":"#1E5631","c2":"#C9A227"}},{"rank":33,"name":"Byeong Hun An","country":"South Korea","team":"Korean Golf Club","points":87.4,"flag":"🇰🇷","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Byeong-hun_An.JPG/500px-Byeong-hun_An.JPG","colors":{"c1":"#C8102E","c2":"#003478"}},{"rank":34,"name":"Anirban Lahiri","country":"India","team":"Crushers GC","points":82.12,"flag":"🇮🇳","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Open_de_France_2015_11.jpg/500px-Open_de_France_2015_11.jpg","colors":{"c1":"#E8621A","c2":"#1A1A1A"}},{"rank":35,"name":"Caleb Surratt","country":"USA","team":"Legion XIII","points":80.92,"flag":"🇺🇸","image":null,"colors":{"c1":"#0A1E3F","c2":"#C9A227"}},{"rank":36,"name":"Charl Schwartzel","country":"South Africa","team":"Southern Guards GC","points":79.23,"flag":"🇿🇦","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Charl_Schwartzel.JPG/500px-Charl_Schwartzel.JPG","colors":{"c1":"#1E5631","c2":"#C9A227"}},{"rank":37,"name":"Bubba Watson","country":"USA","team":"RangeGoats Golf Club","points":79.2,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Bubba_Watson_2012.jpg/500px-Bubba_Watson_2012.jpg","colors":{"c1":"#3F6B3F","c2":"#6B4423"}},{"rank":38,"name":"Graeme McDowell","country":"Northern Ireland","team":"OKGC","points":77.68,"flag":"🇬🇧","image":"https://upload.wikimedia.org/wikipedia/commons/0/01/Graeme_McDowell_2012.jpg","colors":{"c1":"#B22222","c2":"#FFFFFF"}},{"rank":39,"name":"Younghan Song","country":"South Korea","team":"Korean Golf Club","points":76.78,"flag":"🇰🇷","image":null,"colors":{"c1":"#C8102E","c2":"#003478"}},{"rank":40,"name":"Jason Kokrak","country":"USA","team":"OKGC","points":74.3,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Jason_Kokrak_%282011%29.tiff/lossless-page1-120px-Jason_Kokrak_%282011%29.tiff.png","colors":{"c1":"#B22222","c2":"#FFFFFF"}},{"rank":41,"name":"Richard Bland","country":"England","team":"Cleeks Golf Club","points":72.85,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":"https://upload.wikimedia.org/wikipedia/commons/b/b7/Richard_Bland.jpg","colors":{"c1":"#0B2E5C","c2":"#FFFFFF"}},{"rank":42,"name":"Laurie Canter","country":"England","team":"Majesticks Golf Club","points":71.72,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4a/Laurie_Canter_%28Galvin_Green%29.jpg/500px-Laurie_Canter_%28Galvin_Green%29.jpg","colors":{"c1":"#5B2E8C","c2":"#D4AF37"}},{"rank":43,"name":"Ian Poulter","country":"England","team":"Majesticks Golf Club","points":69.86,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Ian_Poulter-La_Temp%C3%AAte_01.jpg/500px-Ian_Poulter-La_Temp%C3%AAte_01.jpg","colors":{"c1":"#5B2E8C","c2":"#D4AF37"}},{"rank":44,"name":"Paul Casey","country":"England","team":"Crushers GC","points":69,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Paul_Casey_2008_US_Open_cropped.jpg/500px-Paul_Casey_2008_US_Open_cropped.jpg","colors":{"c1":"#E8621A","c2":"#1A1A1A"}},{"rank":45,"name":"Cameron Tringale","country":"USA","team":"HyFlyers GC","points":68.74,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Cameron_Tringale.jpg/500px-Cameron_Tringale.jpg","colors":{"c1":"#1565C0","c2":"#FFFFFF"}},{"rank":46,"name":"Yosuke Asaji","country":"Japan","team":"Wild Card","points":67.68,"flag":"🇯🇵","image":null,"colors":{"c1":"#555555","c2":"#999999"}},{"rank":47,"name":"Adrian Meronk","country":"Poland","team":"Cleeks Golf Club","points":67.03,"flag":"🇵🇱","image":null,"colors":{"c1":"#0B2E5C","c2":"#FFFFFF"}},{"rank":48,"name":"Luis Masaveu","country":"Spain","team":"Fireballs GC","points":66.06,"flag":"🇪🇸","image":null,"colors":{"c1":"#D32F2F","c2":"#F57C00"}},{"rank":49,"name":"Ben Campbell","country":"New Zealand","team":"RangeGoats Golf Club","points":60.65,"flag":"🇳🇿","image":null,"colors":{"c1":"#3F6B3F","c2":"#6B4423"}},{"rank":50,"name":"Michael La Sasso","country":"USA","team":"HyFlyers GC","points":49.21,"flag":"🇺🇸","image":null,"colors":{"c1":"#1565C0","c2":"#FFFFFF"}},{"rank":51,"name":"Martin Kaymer","country":"Germany","team":"Cleeks Golf Club","points":48.45,"flag":"🇩🇪","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/MartinKaymer2.jpg/500px-MartinKaymer2.jpg","colors":{"c1":"#0B2E5C","c2":"#FFFFFF"}},{"rank":52,"name":"Bjorn Hellgren","country":"Sweden","team":"Wild Card","points":42.31,"flag":"🇸🇪","image":null,"colors":{"c1":"#555555","c2":"#999999"}},{"rank":53,"name":"Danny Lee","country":"New Zealand","team":"Wild Card","points":41.27,"flag":"🇳🇿","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Danny_Lee.JPG/500px-Danny_Lee.JPG","colors":{"c1":"#555555","c2":"#999999"}},{"rank":54,"name":"Miguel Tabuena","country":"Philippines","team":"Wild Card","points":37.91,"flag":"🇵🇭","image":null,"colors":{"c1":"#555555","c2":"#999999"}},{"rank":55,"name":"Minkyu Kim","country":"South Korea","team":"Korean Golf Club","points":35.48,"flag":"🇰🇷","image":null,"colors":{"c1":"#C8102E","c2":"#003478"}},{"rank":56,"name":"Travis Smyth","country":"Australia","team":"Crushers GC","points":29.9,"flag":"🇦🇺","image":null,"colors":{"c1":"#E8621A","c2":"#1A1A1A"}},{"rank":57,"name":"Sam Horsfield","country":"England","team":"Majesticks Golf Club","points":28.02,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":null,"colors":{"c1":"#5B2E8C","c2":"#D4AF37"}},{"rank":58,"name":"Do-Yeob Mun","country":"South Korea","team":"Korean Golf Club","points":15.75,"flag":"🇰🇷","image":null,"colors":{"c1":"#C8102E","c2":"#003478"}},{"rank":59,"name":"Wade Ormsby","country":"Australia","team":"Reserve","points":15.4,"flag":"🇦🇺","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Wade_Ormsby.JPG/500px-Wade_Ormsby.JPG","colors":{"c1":"#777777","c2":"#AAAAAA"}},{"rank":60,"name":"Jeongwoo Ham","country":"South Korea","team":"Wild Card","points":10.75,"flag":"🇰🇷","image":null,"colors":{"c1":"#555555","c2":"#999999"}},{"rank":61,"name":"Ben Schmidt","country":"England","team":"Reserve","points":10.38,"flag":"🏴󠁧󠁢󠁥󠁮󠁧󠁿","image":null,"colors":{"c1":"#777777","c2":"#AAAAAA"}},{"rank":62,"name":"Max Rottluff","country":"Germany","team":"Reserve","points":4.32,"flag":"🇩🇪","image":null,"colors":{"c1":"#777777","c2":"#AAAAAA"}},{"rank":63,"name":"Phil Mickelson","country":"USA","team":"HyFlyers GC","points":3.55,"flag":"🇺🇸","image":"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Phil_Mickelson_15_%28cropped%29.jpg/500px-Phil_Mickelson_15_%28cropped%29.jpg","colors":{"c1":"#1565C0","c2":"#FFFFFF"}},{"rank":64,"name":"John Catlin","country":"USA","team":"Reserve","points":2.65,"flag":"🇺🇸","image":null,"colors":{"c1":"#777777","c2":"#AAAAAA"}},{"rank":65,"name":"Ollie Schniederjans","country":"USA","team":"Reserve","points":1.3,"flag":"🇺🇸","image":null,"colors":{"c1":"#777777","c2":"#AAAAAA"}}];
 
@@ -375,9 +410,12 @@ function fmtEntryTime(t) {
     d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 
+let dayEntriesCache = [];
+
 async function renderDayGrid() {
   const grid = document.getElementById("dayGrid");
   const entries = (await getAllEntries()).sort((a,b) => b.t - a.t);
+  dayEntriesCache = entries;
   if (!entries.length) {
     grid.innerHTML = '<div class="empty-note" style="grid-column:1/-1">No photos or autographs yet — tap a button above to add one.</div>';
     return;
@@ -408,6 +446,29 @@ async function renderDayGrid() {
     });
   });
 }
+
+// ---- Full-image viewer ----
+function openViewer(entry) {
+  document.getElementById("viewerImg").src = entry.image;
+  document.getElementById("viewerPlayer").textContent = entry.player || entry.caption || (entry.kind === "photo" ? "Photo" : "Autograph");
+  document.getElementById("viewerTime").textContent = fmtEntryTime(entry.t);
+  document.getElementById("viewerLoc").textContent = entry.place || (entry.lat != null ? `${entry.lat.toFixed(3)}, ${entry.lon.toFixed(3)}` : "No location");
+  document.getElementById("viewerSaveBtn").onclick = () => saveImageToDevice(entry.image, `liv-${entry.kind}-${entry.t}`);
+  document.getElementById("viewerOverlay").hidden = false;
+}
+function closeViewer() { document.getElementById("viewerOverlay").hidden = true; }
+
+document.getElementById("dayGrid").addEventListener("click", (e) => {
+  if (e.target.closest("[data-del]")) return;
+  const tile = e.target.closest(".day-tile");
+  if (!tile) return;
+  const entry = dayEntriesCache.find(en => en.id === Number(tile.dataset.id));
+  if (entry) openViewer(entry);
+});
+document.getElementById("viewerCloseBtn").addEventListener("click", closeViewer);
+document.getElementById("viewerOverlay").addEventListener("click", (e) => {
+  if (e.target.id === "viewerOverlay") closeViewer();
+});
 
 // ---- Photo capture flow ----
 const photoInput = document.getElementById("photoInput");
@@ -525,27 +586,36 @@ function compositePhotoWithSignature(photoDataUrl) {
 // so this opens the native "Save Image" share sheet where supported, one tap away from your gallery,
 // falling back to a normal file download if the share sheet isn't available.
 async function saveImageToDevice(dataUrl, filenameBase) {
+  let shared = false;
+  let blob = null;
   try {
     const res = await fetch(dataUrl);
-    const blob = await res.blob();
+    blob = await res.blob();
     const ext = blob.type.includes("png") ? "png" : "jpg";
     const file = new File([blob], `${filenameBase}.${ext}`, { type: blob.type });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file] });
-      return;
+      try {
+        await navigator.share({ files: [file] });
+        shared = true;
+      } catch (shareErr) { shared = false; } // cancelled or blocked — fall through to a plain download
     }
+  } catch (e) { /* couldn't even build the file — nothing more we can do */ }
+
+  if (!shared && blob) {
+    const ext = blob.type.includes("png") ? "png" : "jpg";
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = `${filenameBase}.${ext}`;
     document.body.appendChild(a);
     a.click();
     a.remove();
-  } catch (e) { /* user cancelled the share sheet, or saving isn't supported here — ignore */ }
+  }
 }
 
 document.getElementById("photoSaveBtn").addEventListener("click", async () => {
   if (!pendingPhotoDataUrl) return;
   const finalImage = await compositePhotoWithSignature(pendingPhotoDataUrl);
+  const savePromise = saveImageToDevice(finalImage, `liv-photo-${Date.now()}`);
   await addEntry({
     kind: "photo", image: finalImage, t: Date.now(),
     player: document.getElementById("photoPlayerSelect").value || null,
@@ -559,7 +629,7 @@ document.getElementById("photoSaveBtn").addEventListener("click", async () => {
   pendingPhotoDataUrl = null;
   photoSigHasStroke = false;
   renderDayGrid();
-  saveImageToDevice(finalImage, `liv-photo-${Date.now()}`);
+  await savePromise;
 });
 
 // ---- Signature capture flow ----
@@ -631,6 +701,7 @@ document.getElementById("sigSaveBtn").addEventListener("click", async () => {
   if (!sigHasStroke) { alert("Please sign in the box first."); return; }
   const player = document.getElementById("sigPlayerFree").value.trim() || document.getElementById("sigPlayerSelect").value || null;
   const sigImage = sigCanvas.toDataURL("image/png");
+  const savePromise = saveImageToDevice(sigImage, `liv-autograph-${Date.now()}`);
   await addEntry({
     kind: "autograph", image: sigImage, t: Date.now(),
     player, caption: null,
@@ -640,7 +711,7 @@ document.getElementById("sigSaveBtn").addEventListener("click", async () => {
   });
   sigModal.hidden = true;
   renderDayGrid();
-  saveImageToDevice(sigImage, `liv-autograph-${Date.now()}`);
+  await savePromise;
 });
 
 function initials(name) {
