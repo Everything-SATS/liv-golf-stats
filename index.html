@@ -42,28 +42,51 @@
   .stat-strip { display: flex; justify-content: center; gap: 26px; margin-bottom: 4px; color: var(--ink-soft); font-size: 0.78rem; }
   .stat-strip b { color: var(--ink); font-variant-numeric: tabular-nums; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-top: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 10px; margin-top: 14px; }
   .card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; box-shadow: var(--shadow);
-    display: flex; flex-direction: column; position: relative;
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow);
+    display: flex; flex-direction: column; position: relative; cursor: pointer; padding: 0; font: inherit; text-align: left;
+    color: inherit; -webkit-tap-highlight-color: transparent;
   }
+  .card:active { transform: scale(0.97); }
   .card-photo { width: 100%; aspect-ratio: 1; position: relative; overflow: hidden; background: var(--surface); }
   .card-photo img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
   .card-photo .initials-fallback {
     width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-    font-size: 2.4rem; font-weight: 900; color: #fff;
+    font-size: 1.6rem; font-weight: 900; color: #fff;
   }
   .rank-badge {
-    position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.65); color: #fff; font-size: 0.7rem; font-weight: 800;
-    padding: 3px 8px; border-radius: 999px; font-variant-numeric: tabular-nums;
+    position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,0.65); color: #fff; font-size: 0.62rem; font-weight: 800;
+    padding: 2px 6px; border-radius: 999px; font-variant-numeric: tabular-nums;
   }
-  .team-bar { height: 5px; width: 100%; }
-  .card-body { padding: 10px 12px 12px; }
-  .card-name { font-weight: 800; font-size: 0.92rem; line-height: 1.25; margin-bottom: 3px; }
-  .card-team { font-size: 0.7rem; color: var(--ink-soft); font-weight: 700; margin-bottom: 6px; }
-  .card-stats { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.78rem; }
+  .team-bar { height: 4px; width: 100%; }
+  .card-body { padding: 7px 8px 9px; }
+  .card-name { font-weight: 800; font-size: 0.74rem; line-height: 1.2; margin-bottom: 2px; }
+  .card-team { font-size: 0.6rem; color: var(--ink-soft); font-weight: 700; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-stats { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.66rem; }
   .card-points { font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; }
-  .card-flag { font-size: 1rem; }
+  .card-flag { font-size: 0.85rem; }
+
+  /* Player detail modal */
+  .player-modal-overlay { position: fixed; inset: 0; background: rgba(6,8,12,0.72); display: flex; align-items: center;
+    justify-content: center; padding: 16px; z-index: 60; }
+  .player-modal-overlay[hidden] { display: none; }
+  .player-modal-box { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; overflow: hidden;
+    max-width: 360px; width: 100%; box-shadow: var(--shadow); }
+  .pm-photo { width: 100%; aspect-ratio: 1.3; position: relative; overflow: hidden; background: var(--card); }
+  .pm-photo img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+  .pm-photo .initials-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+    font-size: 3.4rem; font-weight: 900; color: #fff; }
+  .pm-close { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.55); color: #fff; border: none;
+    width: 30px; height: 30px; border-radius: 999px; font-size: 1.1rem; cursor: pointer; line-height: 1; }
+  .pm-team-bar { height: 5px; width: 100%; }
+  .pm-body { padding: 18px 20px 22px; }
+  .pm-name { font-size: 1.3rem; font-weight: 900; margin-bottom: 2px; }
+  .pm-team { font-size: 0.85rem; color: var(--ink-soft); font-weight: 700; margin-bottom: 16px; }
+  .pm-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pm-stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .pm-stat .pm-stat-label { font-size: 0.64rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+  .pm-stat .pm-stat-value { font-size: 1.05rem; font-weight: 900; margin-top: 2px; font-variant-numeric: tabular-nums; }
 
   .empty-note { text-align: center; color: var(--ink-soft); padding: 40px 10px; grid-column: 1 / -1; }
   footer { text-align: center; color: var(--ink-soft); font-size: 0.74rem; margin-top: 30px; line-height: 1.7; }
@@ -110,6 +133,9 @@
     border-radius: 10px; padding: 10px 12px; color: var(--ink); font-size: 0.9rem; font-family: inherit; }
   .sig-pad-wrap { border: 1px dashed var(--line); border-radius: 12px; background: #fff; touch-action: none; }
   #sigCanvas { display: block; width: 100%; height: 180px; touch-action: none; cursor: crosshair; }
+  .sig-pad-wrap-gold { border: 1px dashed #6B5A2A; border-radius: 12px; background: var(--card); touch-action: none; }
+  #photoSigCanvas { display: block; width: 100%; height: 130px; touch-action: none; cursor: crosshair; }
+  .sig-gold-hint { font-size: 0.68rem; color: var(--ink-soft); margin-top: 6px; }
   .modal-photo-preview { width: 100%; max-height: 220px; object-fit: contain; border-radius: 12px; margin-bottom: 12px;
     background: var(--card); }
   .modal-geo-note { font-size: 0.72rem; color: var(--ink-soft); margin: 10px 0 14px; line-height: 1.5; }
@@ -187,6 +213,11 @@
       <label for="photoCaption">Caption (optional)</label>
       <input type="text" id="photoCaption" placeholder="e.g. 17th hole, first tee...">
     </div>
+    <div class="modal-field">
+      <label>Sign here to add a gold autograph onto the photo (optional)</label>
+      <div class="sig-pad-wrap-gold"><canvas id="photoSigCanvas"></canvas></div>
+      <div class="sig-gold-hint">Signature is overlaid in gold onto the bottom of the saved photo. <a href="#" id="photoSigClearBtn" style="color:var(--accent)">Clear signature</a></div>
+    </div>
     <div class="modal-geo-note" id="photoGeoNote">📍 Getting location…</div>
     <div class="modal-actions">
       <button class="btn-cancel" id="photoCancelBtn">Cancel</button>
@@ -216,6 +247,26 @@
       <button class="btn-cancel" id="sigCancelBtn">Cancel</button>
       <button class="btn-clear" id="sigClearBtn">Clear</button>
       <button class="btn-save" id="sigSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Player detail modal -->
+<div class="player-modal-overlay" id="playerModalOverlay" hidden>
+  <div class="player-modal-box">
+    <div class="pm-photo" id="pmPhoto">
+      <button class="pm-close" id="pmCloseBtn" aria-label="Close">×</button>
+    </div>
+    <div class="pm-team-bar" id="pmTeamBar"></div>
+    <div class="pm-body">
+      <div class="pm-name" id="pmName"></div>
+      <div class="pm-team" id="pmTeam"></div>
+      <div class="pm-stat-grid">
+        <div class="pm-stat"><div class="pm-stat-label">Rank</div><div class="pm-stat-value" id="pmRank"></div></div>
+        <div class="pm-stat"><div class="pm-stat-label">Points</div><div class="pm-stat-value" id="pmPoints"></div></div>
+        <div class="pm-stat"><div class="pm-stat-label">Country</div><div class="pm-stat-value" id="pmCountry"></div></div>
+        <div class="pm-stat"><div class="pm-stat-label">Team</div><div class="pm-stat-value" id="pmTeamStat"></div></div>
+      </div>
     </div>
   </div>
 </div>
@@ -339,7 +390,7 @@ async function renderDayGrid() {
     const loc = e.place || (e.lat != null ? `${e.lat.toFixed(3)}, ${e.lon.toFixed(3)}` : "No location");
     return `<div class="day-tile" data-id="${e.id}">
       ${thumb}
-      <div class="kind-badge">${e.kind === "photo" ? "📷 Photo" : "✍️ Autograph"}</div>
+      <div class="kind-badge">${e.kind === "photo" ? (e.signed ? "📷 Signed" : "📷 Photo") : "✍️ Autograph"}</div>
       <button class="del-btn" data-del="${e.id}">×</button>
       <div class="meta">
         ${player}
@@ -376,6 +427,9 @@ photoInput.addEventListener("change", () => {
     document.getElementById("photoCaption").value = "";
     document.getElementById("photoPlayerSelect").value = "";
     photoModal.hidden = false;
+    sizePhotoSigCanvas();
+    photoSigCtx.clearRect(0, 0, photoSigCanvas.width, photoSigCanvas.height);
+    photoSigHasStroke = false;
     const note = document.getElementById("photoGeoNote");
     note.textContent = "📍 Getting location…";
     pendingPhotoGeo = null;
@@ -387,19 +441,125 @@ photoInput.addEventListener("change", () => {
 
 document.getElementById("photoCancelBtn").addEventListener("click", () => { photoModal.hidden = true; });
 
+// ---- Gold autograph pad embedded in the photo modal ----
+const photoSigCanvas = document.getElementById("photoSigCanvas");
+const photoSigCtx = photoSigCanvas.getContext("2d");
+let photoSigDrawing = false;
+let photoSigHasStroke = false;
+
+function sizePhotoSigCanvas() {
+  const rect = photoSigCanvas.getBoundingClientRect();
+  photoSigCanvas.width = rect.width * devicePixelRatio;
+  photoSigCanvas.height = rect.height * devicePixelRatio;
+  photoSigCtx.scale(devicePixelRatio, devicePixelRatio);
+  photoSigCtx.lineWidth = 2.6;
+  photoSigCtx.lineCap = "round";
+  photoSigCtx.strokeStyle = "#D4AF37";
+}
+function photoSigPos(ev) {
+  const rect = photoSigCanvas.getBoundingClientRect();
+  const point = ev.touches ? ev.touches[0] : ev;
+  return { x: point.clientX - rect.left, y: point.clientY - rect.top };
+}
+function photoSigStart(ev) {
+  ev.preventDefault();
+  photoSigDrawing = true; photoSigHasStroke = true;
+  const p = photoSigPos(ev);
+  photoSigCtx.beginPath();
+  photoSigCtx.moveTo(p.x, p.y);
+}
+function photoSigMove(ev) {
+  if (!photoSigDrawing) return;
+  ev.preventDefault();
+  const p = photoSigPos(ev);
+  photoSigCtx.lineTo(p.x, p.y);
+  photoSigCtx.stroke();
+}
+function photoSigEnd() { photoSigDrawing = false; }
+
+photoSigCanvas.addEventListener("mousedown", photoSigStart);
+photoSigCanvas.addEventListener("mousemove", photoSigMove);
+window.addEventListener("mouseup", photoSigEnd);
+photoSigCanvas.addEventListener("touchstart", photoSigStart, { passive: false });
+photoSigCanvas.addEventListener("touchmove", photoSigMove, { passive: false });
+photoSigCanvas.addEventListener("touchend", photoSigEnd);
+
+document.getElementById("photoSigClearBtn").addEventListener("click", (ev) => {
+  ev.preventDefault();
+  photoSigCtx.clearRect(0, 0, photoSigCanvas.width, photoSigCanvas.height);
+  photoSigHasStroke = false;
+});
+
+function compositePhotoWithSignature(photoDataUrl) {
+  return new Promise((resolve) => {
+    if (!photoSigHasStroke) { resolve(photoDataUrl); return; }
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+
+      const padAspect = photoSigCanvas.width / photoSigCanvas.height;
+      const sigWidth = canvas.width * 0.6;
+      const sigHeight = sigWidth / padAspect;
+      const sigX = (canvas.width - sigWidth) / 2;
+      const sigY = canvas.height - sigHeight - canvas.height * 0.04;
+
+      ctx.save();
+      ctx.shadowColor = "rgba(0,0,0,0.5)";
+      ctx.shadowBlur = canvas.width * 0.006;
+      ctx.drawImage(photoSigCanvas, sigX, sigY, sigWidth, sigHeight);
+      ctx.restore();
+
+      resolve(canvas.toDataURL("image/jpeg", 0.9));
+    };
+    img.onerror = () => resolve(photoDataUrl);
+    img.src = photoDataUrl;
+  });
+}
+
+// ---- Save to the phone's own Photos/gallery app ----
+// Browsers don't allow a website to silently write to your camera roll (for good privacy reasons),
+// so this opens the native "Save Image" share sheet where supported, one tap away from your gallery,
+// falling back to a normal file download if the share sheet isn't available.
+async function saveImageToDevice(dataUrl, filenameBase) {
+  try {
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const ext = blob.type.includes("png") ? "png" : "jpg";
+    const file = new File([blob], `${filenameBase}.${ext}`, { type: blob.type });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file] });
+      return;
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${filenameBase}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (e) { /* user cancelled the share sheet, or saving isn't supported here — ignore */ }
+}
+
 document.getElementById("photoSaveBtn").addEventListener("click", async () => {
   if (!pendingPhotoDataUrl) return;
+  const finalImage = await compositePhotoWithSignature(pendingPhotoDataUrl);
   await addEntry({
-    kind: "photo", image: pendingPhotoDataUrl, t: Date.now(),
+    kind: "photo", image: finalImage, t: Date.now(),
     player: document.getElementById("photoPlayerSelect").value || null,
     caption: document.getElementById("photoCaption").value || null,
+    signed: photoSigHasStroke,
     lat: pendingPhotoGeo ? pendingPhotoGeo.lat : null,
     lon: pendingPhotoGeo ? pendingPhotoGeo.lon : null,
     place: pendingPhotoGeo ? pendingPhotoGeo.place : null,
   });
   photoModal.hidden = true;
   pendingPhotoDataUrl = null;
+  photoSigHasStroke = false;
   renderDayGrid();
+  saveImageToDevice(finalImage, `liv-photo-${Date.now()}`);
 });
 
 // ---- Signature capture flow ----
@@ -470,8 +630,9 @@ document.getElementById("sigCancelBtn").addEventListener("click", () => { sigMod
 document.getElementById("sigSaveBtn").addEventListener("click", async () => {
   if (!sigHasStroke) { alert("Please sign in the box first."); return; }
   const player = document.getElementById("sigPlayerFree").value.trim() || document.getElementById("sigPlayerSelect").value || null;
+  const sigImage = sigCanvas.toDataURL("image/png");
   await addEntry({
-    kind: "autograph", image: sigCanvas.toDataURL("image/png"), t: Date.now(),
+    kind: "autograph", image: sigImage, t: Date.now(),
     player, caption: null,
     lat: pendingSigGeo ? pendingSigGeo.lat : null,
     lon: pendingSigGeo ? pendingSigGeo.lon : null,
@@ -479,6 +640,7 @@ document.getElementById("sigSaveBtn").addEventListener("click", async () => {
   });
   sigModal.hidden = true;
   renderDayGrid();
+  saveImageToDevice(sigImage, `liv-autograph-${Date.now()}`);
 });
 
 function initials(name) {
@@ -494,7 +656,7 @@ function cardHtml(p) {
     ? `<img src="${p.image}" alt="${p.name}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;initials-fallback&quot; style=&quot;background:${teamGradient(p.colors).replace(/"/g,'&quot;')}&quot;>${initials(p.name)}</div>'">`
     : `<div class="initials-fallback" style="background:${teamGradient(p.colors)}">${initials(p.name)}</div>`;
   return `
-    <div class="card">
+    <button type="button" class="card" data-rank="${p.rank}">
       <div class="card-photo">
         ${photo}
         <div class="rank-badge">#${p.rank}</div>
@@ -508,7 +670,7 @@ function cardHtml(p) {
           <span class="card-points">${p.points.toFixed(2)} pts</span>
         </div>
       </div>
-    </div>`;
+    </button>`;
 }
 
 function render() {
@@ -559,6 +721,35 @@ document.getElementById("sortSelect").addEventListener("change", (e) => {
 document.getElementById("statTotal").textContent = PLAYERS.length;
 document.getElementById("statTeams").textContent = new Set(PLAYERS.map(p => p.team)).size;
 document.getElementById("statLeader").textContent = PLAYERS.slice().sort((a,b) => a.rank - b.rank)[0].name;
+
+// ---- Player detail modal ----
+function openPlayerModal(p) {
+  const photoEl = document.getElementById("pmPhoto");
+  const photo = p.image
+    ? `<img src="${p.image}" alt="${p.name}" onerror="this.outerHTML='<div class=&quot;initials-fallback&quot; style=&quot;background:${teamGradient(p.colors).replace(/"/g,'&quot;')}&quot;>${initials(p.name)}</div>'">`
+    : `<div class="initials-fallback" style="background:${teamGradient(p.colors)}">${initials(p.name)}</div>`;
+  photoEl.innerHTML = photo + '<button class="pm-close" id="pmCloseBtn" aria-label="Close">×</button>';
+  document.getElementById("pmCloseBtn").addEventListener("click", closePlayerModal);
+  document.getElementById("pmTeamBar").style.background = teamGradient(p.colors);
+  document.getElementById("pmName").textContent = `${p.flag} ${p.name}`;
+  document.getElementById("pmTeam").textContent = p.team;
+  document.getElementById("pmRank").textContent = "#" + p.rank;
+  document.getElementById("pmPoints").textContent = p.points.toFixed(2);
+  document.getElementById("pmCountry").textContent = p.country;
+  document.getElementById("pmTeamStat").textContent = p.team;
+  document.getElementById("playerModalOverlay").hidden = false;
+}
+function closePlayerModal() { document.getElementById("playerModalOverlay").hidden = true; }
+
+document.getElementById("grid").addEventListener("click", (e) => {
+  const card = e.target.closest(".card");
+  if (!card) return;
+  const player = PLAYERS.find(p => p.rank === Number(card.dataset.rank));
+  if (player) openPlayerModal(player);
+});
+document.getElementById("playerModalOverlay").addEventListener("click", (e) => {
+  if (e.target.id === "playerModalOverlay") closePlayerModal();
+});
 
 buildTeamChips();
 render();
