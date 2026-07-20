@@ -165,8 +165,19 @@
   .sig-fs-clear-btn { background: var(--card); color: var(--ink); border: 1px solid var(--line) !important; }
   .sig-fs-done-btn { background: var(--accent); color: var(--accent-ink); }
   .sig-fullscreen-canvas-wrap { flex: 1; touch-action: none; background: var(--card); }
-  .modal-photo-preview { width: 100%; max-height: 220px; object-fit: contain; border-radius: 12px; margin-bottom: 12px;
-    background: var(--card); }
+  .photo-preview-wrap { position: relative; width: 100%; max-height: 50vh; margin-bottom: 12px;
+    border-radius: 12px; overflow: hidden; background: var(--card); }
+  .modal-photo-preview { display: block; width: 100%; height: 100%; object-fit: contain; }
+  .sig-overlay-preview { position: absolute; top: 0; left: 0; touch-action: none; cursor: grab;
+    -webkit-user-drag: none; user-select: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+  .sig-overlay-preview:active { cursor: grabbing; }
+  .sig-overlay-preview[hidden] { display: none; }
+  .sig-overlay-controls { position: absolute; bottom: 8px; right: 8px; display: flex; gap: 6px; z-index: 3; }
+  .sig-overlay-controls[hidden] { display: none; }
+  .sig-zoom-btn { width: 30px; height: 30px; border-radius: 8px; border: none; background: rgba(0,0,0,0.6);
+    color: #fff; font-size: 1.05rem; font-weight: 800; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; line-height: 1; padding: 0; }
+  .sig-reset-btn { font-size: 0.9rem; }
   .modal-geo-note { font-size: 0.72rem; color: var(--ink-soft); margin: 10px 0 14px; line-height: 1.5; }
   .modal-actions { display: flex; gap: 8px; }
   .modal-actions button { flex: 1; border: none; border-radius: 11px; padding: 11px 8px; font-weight: 800;
@@ -251,7 +262,15 @@
 <div class="modal-overlay" id="photoModal" hidden>
   <div class="modal-box">
     <h3>Save Photo</h3>
-    <img id="photoPreview" class="modal-photo-preview" alt="Preview">
+    <div class="photo-preview-wrap" id="photoPreviewWrap">
+      <img id="photoPreview" class="modal-photo-preview" alt="Preview">
+      <img id="sigOverlayPreview" class="sig-overlay-preview" alt="" hidden>
+      <div class="sig-overlay-controls" id="sigOverlayControls" hidden>
+        <button type="button" class="sig-zoom-btn" id="sigZoomOutBtn" aria-label="Shrink autograph">−</button>
+        <button type="button" class="sig-zoom-btn" id="sigZoomInBtn" aria-label="Enlarge autograph">+</button>
+        <button type="button" class="sig-zoom-btn sig-reset-btn" id="sigResetPosBtn" aria-label="Reset autograph size and position">⟲</button>
+      </div>
+    </div>
     <div class="modal-field">
       <label for="photoPlayerSelect">Player (optional)</label>
       <select id="photoPlayerSelect"><option value="">— none —</option></select>
@@ -545,6 +564,7 @@ photoInput.addEventListener("change", () => {
     sizePhotoSigCanvas();
     photoSigCtx.clearRect(0, 0, photoSigCanvas.width, photoSigCanvas.height);
     photoSigHasStroke = false;
+    sigTransform = { ...DEFAULT_SIG_TRANSFORM };
     const note = document.getElementById("photoGeoNote");
     note.textContent = "📍 Getting location…";
     pendingPhotoGeo = null;
@@ -592,6 +612,7 @@ function setSigColor(color) {
   document.querySelectorAll(".sig-color-swatch").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.color.toLowerCase() === color.toLowerCase());
   });
+  updateSigOverlayPreview();
 }
 document.querySelectorAll(".sig-color-swatch").forEach(btn => {
   btn.addEventListener("click", (ev) => {
@@ -628,7 +649,7 @@ function photoSigMove(ev) {
   photoSigCtx.lineTo(p.x, p.y);
   photoSigCtx.stroke();
 }
-function photoSigEnd() { photoSigDrawing = false; }
+function photoSigEnd() { photoSigDrawing = false; updateSigOverlayPreview(); }
 
 photoSigCanvas.addEventListener("mousedown", photoSigStart);
 photoSigCanvas.addEventListener("mousemove", photoSigMove);
@@ -637,10 +658,129 @@ photoSigCanvas.addEventListener("touchstart", photoSigStart, { passive: false })
 photoSigCanvas.addEventListener("touchmove", photoSigMove, { passive: false });
 photoSigCanvas.addEventListener("touchend", photoSigEnd);
 
-document.getElementById("photoSigClearBtn").addEventListener("click", (ev) => {
-  ev.preventDefault();
+function clearPhotoSig() {
   photoSigCtx.clearRect(0, 0, photoSigCanvas.width, photoSigCanvas.height);
   photoSigHasStroke = false;
+  sigTransform = { ...DEFAULT_SIG_TRANSFORM };
+  updateSigOverlayPreview();
+}
+document.getElementById("photoSigClearBtn").addEventListener("click", (ev) => {
+  ev.preventDefault();
+  clearPhotoSig();
+});
+
+// ---- Interactive position/zoom of the autograph on the photo preview ----
+// xFrac/yFrac are the overlay's CENTER point as a fraction of the preview's own displayed
+// width/height; scale multiplies computeSigBaseSize()'s default size. Fractions (not pixels)
+// are what make the SAME transform apply correctly to both the small on-screen preview and the
+// full-resolution photo at save time -- see computeSigBaseSize's comment.
+const photoPreviewImg = document.getElementById("photoPreview");
+const photoPreviewWrap = document.getElementById("photoPreviewWrap");
+const sigOverlayPreview = document.getElementById("sigOverlayPreview");
+const sigOverlayControls = document.getElementById("sigOverlayControls");
+const DEFAULT_SIG_TRANSFORM = { xFrac: 0.5, yFrac: 0.85, scale: 1 };
+let sigTransform = { ...DEFAULT_SIG_TRANSFORM };
+
+function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+photoPreviewImg.addEventListener("load", () => {
+  if (photoPreviewImg.naturalWidth && photoPreviewImg.naturalHeight) {
+    photoPreviewWrap.style.aspectRatio = `${photoPreviewImg.naturalWidth} / ${photoPreviewImg.naturalHeight}`;
+  }
+  updateSigOverlayPreview();
+});
+
+function updateSigOverlayPreview() {
+  if (!photoSigHasStroke || !photoPreviewImg.naturalWidth) {
+    sigOverlayPreview.hidden = true;
+    sigOverlayControls.hidden = true;
+    return;
+  }
+  const crop = computeSigCrop();
+  const off = document.createElement("canvas");
+  off.width = crop.srcW; off.height = crop.srcH;
+  off.getContext("2d").drawImage(photoSigCanvas, crop.srcX, crop.srcY, crop.srcW, crop.srcH, 0, 0, crop.srcW, crop.srcH);
+  sigOverlayPreview.src = off.toDataURL();
+
+  const wrapRect = photoPreviewWrap.getBoundingClientRect();
+  const base = computeSigBaseSize(wrapRect.width, wrapRect.height, crop.cropAspect);
+  const dispW = base.width * sigTransform.scale;
+  const dispH = base.height * sigTransform.scale;
+  sigOverlayPreview.style.width = dispW + "px";
+  sigOverlayPreview.style.height = dispH + "px";
+  sigOverlayPreview.style.left = (sigTransform.xFrac * wrapRect.width - dispW / 2) + "px";
+  sigOverlayPreview.style.top = (sigTransform.yFrac * wrapRect.height - dispH / 2) + "px";
+  sigOverlayPreview.hidden = false;
+  sigOverlayControls.hidden = false;
+}
+
+// Drag (1 finger / mouse) to move, pinch (2 fingers) to resize -- unified via the Pointer
+// Events API so touch and mouse share one code path. Tracks every active pointer in a map;
+// switches behaviour based on how many are currently down.
+const activeSigPointers = new Map();
+let sigDragStart = null;
+let sigPinchStartDist = null;
+let sigPinchStartScale = 1;
+
+function sigPointerDown(ev) {
+  ev.preventDefault();
+  sigOverlayPreview.setPointerCapture(ev.pointerId);
+  activeSigPointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  if (activeSigPointers.size === 1) {
+    sigDragStart = { clientX: ev.clientX, clientY: ev.clientY, xFrac: sigTransform.xFrac, yFrac: sigTransform.yFrac };
+  } else if (activeSigPointers.size === 2) {
+    sigDragStart = null;
+    const pts = Array.from(activeSigPointers.values());
+    sigPinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    sigPinchStartScale = sigTransform.scale;
+  }
+}
+function sigPointerMove(ev) {
+  if (!activeSigPointers.has(ev.pointerId)) return;
+  activeSigPointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+  const wrapRect = photoPreviewWrap.getBoundingClientRect();
+  if (activeSigPointers.size === 1 && sigDragStart) {
+    const dx = ev.clientX - sigDragStart.clientX;
+    const dy = ev.clientY - sigDragStart.clientY;
+    sigTransform.xFrac = clamp(sigDragStart.xFrac + dx / wrapRect.width, 0.05, 0.95);
+    sigTransform.yFrac = clamp(sigDragStart.yFrac + dy / wrapRect.height, 0.05, 0.95);
+    updateSigOverlayPreview();
+  } else if (activeSigPointers.size === 2 && sigPinchStartDist) {
+    const pts = Array.from(activeSigPointers.values());
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    sigTransform.scale = clamp(sigPinchStartScale * (dist / sigPinchStartDist), 0.4, 3.0);
+    updateSigOverlayPreview();
+  }
+}
+function sigPointerUp(ev) {
+  activeSigPointers.delete(ev.pointerId);
+  if (activeSigPointers.size === 0) {
+    sigDragStart = null; sigPinchStartDist = null;
+  } else if (activeSigPointers.size === 1) {
+    const remaining = Array.from(activeSigPointers.values())[0];
+    sigDragStart = { clientX: remaining.x, clientY: remaining.y, xFrac: sigTransform.xFrac, yFrac: sigTransform.yFrac };
+    sigPinchStartDist = null;
+  }
+}
+sigOverlayPreview.addEventListener("pointerdown", sigPointerDown);
+sigOverlayPreview.addEventListener("pointermove", sigPointerMove);
+sigOverlayPreview.addEventListener("pointerup", sigPointerUp);
+sigOverlayPreview.addEventListener("pointercancel", sigPointerUp);
+
+document.getElementById("sigZoomInBtn").addEventListener("click", (ev) => {
+  ev.preventDefault();
+  sigTransform.scale = clamp(sigTransform.scale * 1.15, 0.4, 3.0);
+  updateSigOverlayPreview();
+});
+document.getElementById("sigZoomOutBtn").addEventListener("click", (ev) => {
+  ev.preventDefault();
+  sigTransform.scale = clamp(sigTransform.scale / 1.15, 0.4, 3.0);
+  updateSigOverlayPreview();
+});
+document.getElementById("sigResetPosBtn").addEventListener("click", (ev) => {
+  ev.preventDefault();
+  sigTransform = { ...DEFAULT_SIG_TRANSFORM };
+  updateSigOverlayPreview();
 });
 
 // ---- Expand the gold signature pad to full screen (and back) ----
@@ -685,6 +825,8 @@ function setSigCanvasFullscreen(toFullscreen) {
     sigFullscreenOverlay.hidden = true;
   }
   resizeSigCanvasPreservingContent();
+  // The redraw above is async (Image.onload), so give it a beat before refreshing the preview.
+  setTimeout(updateSigOverlayPreview, 30);
 }
 
 document.getElementById("photoSigExpandBtn").addEventListener("click", (ev) => {
@@ -697,8 +839,7 @@ document.getElementById("sigFsDoneBtn").addEventListener("click", (ev) => {
 });
 document.getElementById("sigFsClearBtn").addEventListener("click", (ev) => {
   ev.preventDefault();
-  photoSigCtx.clearRect(0, 0, photoSigCanvas.width, photoSigCanvas.height);
-  photoSigHasStroke = false;
+  clearPhotoSig();
 });
 
 // Rotating the phone while the fullscreen pad is open changes the viewport from portrait to
@@ -742,6 +883,39 @@ function getStrokeBoundingBox(canvas) {
   return found ? { x: minX, y: minY, width: maxX - minX, height: maxY - minY } : null;
 }
 
+// Shared by BOTH the live draggable/zoomable preview and the final composite, so they can never
+// drift apart -- whatever the preview shows is exactly what gets saved.
+function computeSigCrop() {
+  const box = getStrokeBoundingBox(photoSigCanvas);
+  const pad = 6;
+  const srcX = box ? Math.max(0, box.x - pad) : 0;
+  const srcY = box ? Math.max(0, box.y - pad) : 0;
+  const srcW = box ? Math.min(photoSigCanvas.width - srcX, box.width + pad * 2) : photoSigCanvas.width;
+  const srcH = box ? Math.min(photoSigCanvas.height - srcY, box.height + pad * 2) : photoSigCanvas.height;
+  return { srcX, srcY, srcW, srcH, cropAspect: srcW / srcH };
+}
+
+// The DEFAULT size (before the user's own pinch/button zoom multiplier) at a given target
+// resolution -- called once for the on-screen preview (targetW/H = the displayed preview box)
+// and again for the final save (targetW/H = the photo's own full resolution); since both share
+// the same aspect ratio, the same xFrac/yFrac/scale numbers apply unchanged to either.
+// Sized so the autograph reads clearly and prominently regardless of what shape it was signed
+// in: at least HALF the target's width, and at least 12% of its height too -- NOT just
+// aspect-locked to the crop, since a signature signed edge-to-edge on a wide landscape pad has
+// an extreme aspect ratio (10:1+); preserving that exactly would stay "technically half-width"
+// but come out as an illegible razor-thin sliver. Once the height floor kicks in, this
+// deliberately stops preserving the crop's exact aspect ratio -- a little vertical stretch
+// reads far better than a hairline.
+const SIG_MIN_WIDTH_FRAC = 0.5, SIG_TARGET_WIDTH_FRAC = 0.58, SIG_MIN_HEIGHT_FRAC = 0.12, SIG_MAX_HEIGHT_FRAC = 0.40;
+function computeSigBaseSize(targetW, targetH, cropAspect) {
+  let width = targetW * SIG_TARGET_WIDTH_FRAC;
+  let height = width / cropAspect;
+  if (height < targetH * SIG_MIN_HEIGHT_FRAC) height = targetH * SIG_MIN_HEIGHT_FRAC;
+  if (height > targetH * SIG_MAX_HEIGHT_FRAC) height = targetH * SIG_MAX_HEIGHT_FRAC;
+  if (width < targetW * SIG_MIN_WIDTH_FRAC) width = targetW * SIG_MIN_WIDTH_FRAC;
+  return { width, height };
+}
+
 function compositePhotoWithSignature(photoDataUrl) {
   return new Promise((resolve) => {
     if (!photoSigHasStroke) { resolve(photoDataUrl); return; }
@@ -753,32 +927,13 @@ function compositePhotoWithSignature(photoDataUrl) {
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0);
 
-      const box = getStrokeBoundingBox(photoSigCanvas);
-      const pad = 6;
-      const srcX = box ? Math.max(0, box.x - pad) : 0;
-      const srcY = box ? Math.max(0, box.y - pad) : 0;
-      const srcW = box ? Math.min(photoSigCanvas.width - srcX, box.width + pad * 2) : photoSigCanvas.width;
-      const srcH = box ? Math.min(photoSigCanvas.height - srcY, box.height + pad * 2) : photoSigCanvas.height;
-      const cropAspect = srcW / srcH;
-
-      // Sized so the autograph reads clearly and prominently on the photo regardless of what
-      // shape it was signed in: at least HALF the photo's width, and at least 12% of its height
-      // too -- NOT just aspect-locked to the crop, since a signature signed edge-to-edge on a
-      // wide landscape pad has an extreme aspect ratio (10:1+); preserving that exactly would
-      // stay "technically half-width" but come out as an illegible razor-thin sliver. Once the
-      // height floor kicks in, this deliberately stops preserving the crop's exact aspect
-      // ratio -- a little vertical stretch reads far better than a hairline.
-      const MIN_WIDTH_FRAC = 0.5;
-      const TARGET_WIDTH_FRAC = 0.58;
-      const MIN_HEIGHT_FRAC = 0.12;
-      const MAX_HEIGHT_FRAC = 0.40;
-      let sigWidth = canvas.width * TARGET_WIDTH_FRAC;
-      let sigHeight = sigWidth / cropAspect;
-      if (sigHeight < canvas.height * MIN_HEIGHT_FRAC) sigHeight = canvas.height * MIN_HEIGHT_FRAC;
-      if (sigHeight > canvas.height * MAX_HEIGHT_FRAC) sigHeight = canvas.height * MAX_HEIGHT_FRAC;
-      if (sigWidth < canvas.width * MIN_WIDTH_FRAC) sigWidth = canvas.width * MIN_WIDTH_FRAC;
-      const sigX = (canvas.width - sigWidth) / 2;
-      const sigY = canvas.height - sigHeight - canvas.height * 0.04;
+      const crop = computeSigCrop();
+      const base = computeSigBaseSize(canvas.width, canvas.height, crop.cropAspect);
+      const sigWidth = base.width * sigTransform.scale;
+      const sigHeight = base.height * sigTransform.scale;
+      const sigX = sigTransform.xFrac * canvas.width - sigWidth / 2;
+      const sigY = sigTransform.yFrac * canvas.height - sigHeight / 2;
+      const srcX = crop.srcX, srcY = crop.srcY, srcW = crop.srcW, srcH = crop.srcH;
 
       ctx.save();
       ctx.shadowColor = "rgba(0,0,0,0.5)";
