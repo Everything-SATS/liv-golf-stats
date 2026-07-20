@@ -145,6 +145,10 @@
   .sig-expand-btn { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.6); color: #fff; border: none;
     width: 30px; height: 30px; border-radius: 8px; font-size: 1rem; cursor: pointer; line-height: 1;
     display: flex; align-items: center; justify-content: center; z-index: 2; }
+  .sig-color-row { display: flex; gap: 8px; margin-top: 8px; }
+  .sig-color-swatch { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line);
+    cursor: pointer; padding: 0; }
+  .sig-color-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--bg), 0 0 0 3px var(--accent); }
 
   /* Fullscreen signature pad -- opened from the gold autograph pad's expand button */
   .sig-fullscreen-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 100;
@@ -257,12 +261,19 @@
       <input type="text" id="photoCaption" placeholder="e.g. 17th hole, first tee...">
     </div>
     <div class="modal-field">
-      <label>Sign here to add a gold autograph onto the photo (optional)</label>
+      <label>Sign here to add an autograph onto the photo (optional)</label>
       <div class="sig-pad-wrap-gold" id="photoSigWrap">
         <canvas id="photoSigCanvas"></canvas>
         <button type="button" class="sig-expand-btn" id="photoSigExpandBtn" aria-label="Expand signature pad to full screen" title="Expand to full screen">⛶</button>
       </div>
-      <div class="sig-gold-hint">Signature is overlaid in gold onto the bottom of the saved photo. <a href="#" id="photoSigClearBtn" style="color:var(--accent)">Clear signature</a></div>
+      <div class="sig-color-row" id="photoSigColorRow">
+        <button type="button" class="sig-color-swatch active" data-color="#D4AF37" style="background:#D4AF37" aria-label="Gold ink"></button>
+        <button type="button" class="sig-color-swatch" data-color="#FFFFFF" style="background:#FFFFFF" aria-label="White ink"></button>
+        <button type="button" class="sig-color-swatch" data-color="#111111" style="background:#111111" aria-label="Black ink"></button>
+        <button type="button" class="sig-color-swatch" data-color="#C0392B" style="background:#C0392B" aria-label="Red ink"></button>
+        <button type="button" class="sig-color-swatch" data-color="#2E6BE6" style="background:#2E6BE6" aria-label="Blue ink"></button>
+      </div>
+      <div class="sig-gold-hint">Signature is overlaid onto the bottom of the saved photo. <a href="#" id="photoSigClearBtn" style="color:var(--accent)">Clear signature</a></div>
     </div>
     <div class="modal-geo-note" id="photoGeoNote">📍 Getting location…</div>
     <div class="modal-actions">
@@ -553,6 +564,21 @@ const photoSigCanvas = document.getElementById("photoSigCanvas");
 const photoSigCtx = photoSigCanvas.getContext("2d");
 let photoSigDrawing = false;
 let photoSigHasStroke = false;
+let photoSigColor = "#D4AF37";
+
+function setSigColor(color) {
+  photoSigColor = color;
+  photoSigCtx.strokeStyle = color;
+  document.querySelectorAll(".sig-color-swatch").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.color.toLowerCase() === color.toLowerCase());
+  });
+}
+document.querySelectorAll(".sig-color-swatch").forEach(btn => {
+  btn.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    setSigColor(btn.dataset.color);
+  });
+});
 
 function sizePhotoSigCanvas() {
   const rect = photoSigCanvas.getBoundingClientRect();
@@ -561,7 +587,7 @@ function sizePhotoSigCanvas() {
   photoSigCtx.scale(devicePixelRatio, devicePixelRatio);
   photoSigCtx.lineWidth = 2.6;
   photoSigCtx.lineCap = "round";
-  photoSigCtx.strokeStyle = "#D4AF37";
+  photoSigCtx.strokeStyle = photoSigColor;
 }
 function photoSigPos(ev) {
   const rect = photoSigCanvas.getBoundingClientRect();
@@ -669,6 +695,33 @@ window.addEventListener("orientationchange", () => {
   if (!sigFullscreenOverlay.hidden) setTimeout(resizeSigCanvasPreservingContent, 50);
 });
 
+// Finds the bounding box of the actually-drawn ink on a signature canvas (alpha > threshold),
+// sampled every few pixels for speed. Needed because the pad's own shape now varies a lot --
+// landscape signing produces a wide/short pad, portrait a narrow/tall one -- so compositing the
+// RAW pad (mostly blank canvas around a small signature) made the ink look tiny and randomly
+// positioned depending on what orientation it was signed in. Cropping to just the ink first
+// means the final overlay size/position is consistent regardless of pad shape.
+function getStrokeBoundingBox(canvas) {
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width, h = canvas.height;
+  if (w === 0 || h === 0) return null;
+  const data = ctx.getImageData(0, 0, w, h).data;
+  let minX = w, minY = h, maxX = 0, maxY = 0, found = false;
+  const step = 2;
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      if (data[(y * w + x) * 4 + 3] > 10) {
+        found = true;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  return found ? { x: minX, y: minY, width: maxX - minX, height: maxY - minY } : null;
+}
+
 function compositePhotoWithSignature(photoDataUrl) {
   return new Promise((resolve) => {
     if (!photoSigHasStroke) { resolve(photoDataUrl); return; }
@@ -680,16 +733,37 @@ function compositePhotoWithSignature(photoDataUrl) {
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0);
 
-      const padAspect = photoSigCanvas.width / photoSigCanvas.height;
-      const sigWidth = canvas.width * 0.6;
-      const sigHeight = sigWidth / padAspect;
+      const box = getStrokeBoundingBox(photoSigCanvas);
+      const pad = 6;
+      const srcX = box ? Math.max(0, box.x - pad) : 0;
+      const srcY = box ? Math.max(0, box.y - pad) : 0;
+      const srcW = box ? Math.min(photoSigCanvas.width - srcX, box.width + pad * 2) : photoSigCanvas.width;
+      const srcH = box ? Math.min(photoSigCanvas.height - srcY, box.height + pad * 2) : photoSigCanvas.height;
+      const cropAspect = srcW / srcH;
+
+      // Sized so the autograph reads clearly on the photo regardless of what shape it was
+      // signed in: at least 1/3 of the photo's width, capped so it doesn't swallow the whole
+      // image if the crop happens to be unusually tall/narrow.
+      const MIN_WIDTH_FRAC = 1 / 3;
+      const TARGET_WIDTH_FRAC = 0.42;
+      const MAX_HEIGHT_FRAC = 0.32;
+      let sigWidth = canvas.width * TARGET_WIDTH_FRAC;
+      let sigHeight = sigWidth / cropAspect;
+      if (sigHeight > canvas.height * MAX_HEIGHT_FRAC) {
+        sigHeight = canvas.height * MAX_HEIGHT_FRAC;
+        sigWidth = sigHeight * cropAspect;
+      }
+      if (sigWidth < canvas.width * MIN_WIDTH_FRAC) {
+        sigWidth = canvas.width * MIN_WIDTH_FRAC;
+        sigHeight = sigWidth / cropAspect;
+      }
       const sigX = (canvas.width - sigWidth) / 2;
       const sigY = canvas.height - sigHeight - canvas.height * 0.04;
 
       ctx.save();
       ctx.shadowColor = "rgba(0,0,0,0.5)";
       ctx.shadowBlur = canvas.width * 0.006;
-      ctx.drawImage(photoSigCanvas, sigX, sigY, sigWidth, sigHeight);
+      ctx.drawImage(photoSigCanvas, srcX, srcY, srcW, srcH, sigX, sigY, sigWidth, sigHeight);
       ctx.restore();
 
       resolve(canvas.toDataURL("image/jpeg", 0.9));
