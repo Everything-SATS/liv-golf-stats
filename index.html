@@ -153,6 +153,8 @@
   .sig-fullscreen-header { display: flex; justify-content: space-between; align-items: center;
     padding: 14px 16px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
   .sig-fullscreen-header span { font-weight: 800; font-size: 0.92rem; }
+  .sig-fs-rotate-hint { font-weight: 500; font-size: 0.72rem; color: var(--ink-soft); }
+  @media (max-width: 380px) { .sig-fs-rotate-hint { display: none; } }
   .sig-fullscreen-actions { display: flex; gap: 8px; }
   .sig-fullscreen-actions button { border: none; border-radius: 10px; padding: 9px 16px; font-weight: 800;
     font-size: 0.85rem; cursor: pointer; font-family: inherit; }
@@ -273,7 +275,7 @@
 <!-- Fullscreen signature pad (expanded from the gold autograph pad in the photo modal) -->
 <div class="sig-fullscreen-overlay" id="sigFullscreenOverlay" hidden>
   <div class="sig-fullscreen-header">
-    <span>Sign here</span>
+    <span>Sign here <span class="sig-fs-rotate-hint">— rotate your phone for more room</span></span>
     <div class="sig-fullscreen-actions">
       <button type="button" class="sig-fs-clear-btn" id="sigFsClearBtn">Clear</button>
       <button type="button" class="sig-fs-done-btn" id="sigFsDoneBtn">Done</button>
@@ -605,19 +607,13 @@ const photoSigWrap = document.getElementById("photoSigWrap");
 const sigFullscreenOverlay = document.getElementById("sigFullscreenOverlay");
 const sigFullscreenCanvasWrap = document.getElementById("sigFullscreenCanvasWrap");
 
-function setSigCanvasFullscreen(toFullscreen) {
+// Re-measures the canvas against whatever size it's CURRENTLY laid out at and redraws the
+// preserved signature into it -- shared by the initial expand-to-fullscreen AND by the
+// resize/orientationchange handlers below, since both need the same "snapshot, resize, redraw"
+// steps.
+function resizeSigCanvasPreservingContent() {
   const hadStroke = photoSigHasStroke;
   const snapshot = hadStroke ? photoSigCanvas.toDataURL() : null;
-
-  if (toFullscreen) {
-    sigFullscreenCanvasWrap.appendChild(photoSigCanvas);
-    photoSigCanvas.style.height = "100%";
-    sigFullscreenOverlay.hidden = false;
-  } else {
-    photoSigCanvas.style.height = "";
-    photoSigWrap.insertBefore(photoSigCanvas, photoSigWrap.firstChild);
-    sigFullscreenOverlay.hidden = true;
-  }
 
   sizePhotoSigCanvas();
   photoSigCtx.clearRect(0, 0, photoSigCanvas.width, photoSigCanvas.height);
@@ -632,6 +628,19 @@ function setSigCanvasFullscreen(toFullscreen) {
   photoSigHasStroke = hadStroke;
 }
 
+function setSigCanvasFullscreen(toFullscreen) {
+  if (toFullscreen) {
+    sigFullscreenCanvasWrap.appendChild(photoSigCanvas);
+    photoSigCanvas.style.height = "100%";
+    sigFullscreenOverlay.hidden = false;
+  } else {
+    photoSigCanvas.style.height = "";
+    photoSigWrap.insertBefore(photoSigCanvas, photoSigWrap.firstChild);
+    sigFullscreenOverlay.hidden = true;
+  }
+  resizeSigCanvasPreservingContent();
+}
+
 document.getElementById("photoSigExpandBtn").addEventListener("click", (ev) => {
   ev.preventDefault();
   setSigCanvasFullscreen(true);
@@ -644,6 +653,20 @@ document.getElementById("sigFsClearBtn").addEventListener("click", (ev) => {
   ev.preventDefault();
   photoSigCtx.clearRect(0, 0, photoSigCanvas.width, photoSigCanvas.height);
   photoSigHasStroke = false;
+});
+
+// Rotating the phone while the fullscreen pad is open changes the viewport from portrait to
+// landscape (or back) -- without re-measuring, the canvas keeps its OLD pixel buffer and the
+// browser just stretches that bitmap to fit the new shape (looks like a "zoom", not real extra
+// width to sign along). Only acts while the fullscreen pad is actually open. orientationchange
+// gets a short delay since some mobile browsers fire it before the viewport's own dimensions
+// have finished updating; resize is listened to as well since not every browser fires
+// orientationchange reliably on rotation.
+window.addEventListener("resize", () => {
+  if (!sigFullscreenOverlay.hidden) resizeSigCanvasPreservingContent();
+});
+window.addEventListener("orientationchange", () => {
+  if (!sigFullscreenOverlay.hidden) setTimeout(resizeSigCanvasPreservingContent, 50);
 });
 
 function compositePhotoWithSignature(photoDataUrl) {
