@@ -139,9 +139,26 @@
     border-radius: 10px; padding: 10px 12px; color: var(--ink); font-size: 0.9rem; font-family: inherit; }
   .sig-pad-wrap { border: 1px dashed var(--line); border-radius: 12px; background: #fff; touch-action: none; }
   #sigCanvas { display: block; width: 100%; height: 180px; touch-action: none; cursor: crosshair; }
-  .sig-pad-wrap-gold { border: 1px dashed #6B5A2A; border-radius: 12px; background: var(--card); touch-action: none; }
+  .sig-pad-wrap-gold { position: relative; border: 1px dashed #6B5A2A; border-radius: 12px; background: var(--card); touch-action: none; }
   #photoSigCanvas { display: block; width: 100%; height: 130px; touch-action: none; cursor: crosshair; }
   .sig-gold-hint { font-size: 0.68rem; color: var(--ink-soft); margin-top: 6px; }
+  .sig-expand-btn { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.6); color: #fff; border: none;
+    width: 30px; height: 30px; border-radius: 8px; font-size: 1rem; cursor: pointer; line-height: 1;
+    display: flex; align-items: center; justify-content: center; z-index: 2; }
+
+  /* Fullscreen signature pad -- opened from the gold autograph pad's expand button */
+  .sig-fullscreen-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 100;
+    display: flex; flex-direction: column; }
+  .sig-fullscreen-overlay[hidden] { display: none; }
+  .sig-fullscreen-header { display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+  .sig-fullscreen-header span { font-weight: 800; font-size: 0.92rem; }
+  .sig-fullscreen-actions { display: flex; gap: 8px; }
+  .sig-fullscreen-actions button { border: none; border-radius: 10px; padding: 9px 16px; font-weight: 800;
+    font-size: 0.85rem; cursor: pointer; font-family: inherit; }
+  .sig-fs-clear-btn { background: var(--card); color: var(--ink); border: 1px solid var(--line) !important; }
+  .sig-fs-done-btn { background: var(--accent); color: var(--accent-ink); }
+  .sig-fullscreen-canvas-wrap { flex: 1; touch-action: none; background: var(--card); }
   .modal-photo-preview { width: 100%; max-height: 220px; object-fit: contain; border-radius: 12px; margin-bottom: 12px;
     background: var(--card); }
   .modal-geo-note { font-size: 0.72rem; color: var(--ink-soft); margin: 10px 0 14px; line-height: 1.5; }
@@ -239,7 +256,10 @@
     </div>
     <div class="modal-field">
       <label>Sign here to add a gold autograph onto the photo (optional)</label>
-      <div class="sig-pad-wrap-gold"><canvas id="photoSigCanvas"></canvas></div>
+      <div class="sig-pad-wrap-gold" id="photoSigWrap">
+        <canvas id="photoSigCanvas"></canvas>
+        <button type="button" class="sig-expand-btn" id="photoSigExpandBtn" aria-label="Expand signature pad to full screen" title="Expand to full screen">⛶</button>
+      </div>
       <div class="sig-gold-hint">Signature is overlaid in gold onto the bottom of the saved photo. <a href="#" id="photoSigClearBtn" style="color:var(--accent)">Clear signature</a></div>
     </div>
     <div class="modal-geo-note" id="photoGeoNote">📍 Getting location…</div>
@@ -248,6 +268,18 @@
       <button class="btn-save" id="photoSaveBtn">Save</button>
     </div>
   </div>
+</div>
+
+<!-- Fullscreen signature pad (expanded from the gold autograph pad in the photo modal) -->
+<div class="sig-fullscreen-overlay" id="sigFullscreenOverlay" hidden>
+  <div class="sig-fullscreen-header">
+    <span>Sign here</span>
+    <div class="sig-fullscreen-actions">
+      <button type="button" class="sig-fs-clear-btn" id="sigFsClearBtn">Clear</button>
+      <button type="button" class="sig-fs-done-btn" id="sigFsDoneBtn">Done</button>
+    </div>
+  </div>
+  <div class="sig-fullscreen-canvas-wrap" id="sigFullscreenCanvasWrap"></div>
 </div>
 
 <!-- Autograph modal -->
@@ -509,7 +541,10 @@ photoInput.addEventListener("change", () => {
   photoInput.value = "";
 });
 
-document.getElementById("photoCancelBtn").addEventListener("click", () => { photoModal.hidden = true; });
+document.getElementById("photoCancelBtn").addEventListener("click", () => {
+  if (!sigFullscreenOverlay.hidden) setSigCanvasFullscreen(false);
+  photoModal.hidden = true;
+});
 
 // ---- Gold autograph pad embedded in the photo modal ----
 const photoSigCanvas = document.getElementById("photoSigCanvas");
@@ -555,6 +590,57 @@ photoSigCanvas.addEventListener("touchmove", photoSigMove, { passive: false });
 photoSigCanvas.addEventListener("touchend", photoSigEnd);
 
 document.getElementById("photoSigClearBtn").addEventListener("click", (ev) => {
+  ev.preventDefault();
+  photoSigCtx.clearRect(0, 0, photoSigCanvas.width, photoSigCanvas.height);
+  photoSigHasStroke = false;
+});
+
+// ---- Expand the gold signature pad to full screen (and back) ----
+// Moves the SAME canvas element (not a clone) between its normal spot in the photo modal and
+// the fullscreen overlay, so the drawing event listeners bound above never need rebinding.
+// Resizing a canvas clears it (setting .width/.height wipes the bitmap), so the current
+// signature is snapshotted to a data URL first and redrawn once the canvas is back at its new
+// size -- a user part-way through signing shouldn't lose their signature by tapping expand.
+const photoSigWrap = document.getElementById("photoSigWrap");
+const sigFullscreenOverlay = document.getElementById("sigFullscreenOverlay");
+const sigFullscreenCanvasWrap = document.getElementById("sigFullscreenCanvasWrap");
+
+function setSigCanvasFullscreen(toFullscreen) {
+  const hadStroke = photoSigHasStroke;
+  const snapshot = hadStroke ? photoSigCanvas.toDataURL() : null;
+
+  if (toFullscreen) {
+    sigFullscreenCanvasWrap.appendChild(photoSigCanvas);
+    photoSigCanvas.style.height = "100%";
+    sigFullscreenOverlay.hidden = false;
+  } else {
+    photoSigCanvas.style.height = "";
+    photoSigWrap.insertBefore(photoSigCanvas, photoSigWrap.firstChild);
+    sigFullscreenOverlay.hidden = true;
+  }
+
+  sizePhotoSigCanvas();
+  photoSigCtx.clearRect(0, 0, photoSigCanvas.width, photoSigCanvas.height);
+  if (snapshot) {
+    const img = new Image();
+    img.onload = () => {
+      const rect = photoSigCanvas.getBoundingClientRect();
+      photoSigCtx.drawImage(img, 0, 0, rect.width, rect.height);
+    };
+    img.src = snapshot;
+  }
+  photoSigHasStroke = hadStroke;
+}
+
+document.getElementById("photoSigExpandBtn").addEventListener("click", (ev) => {
+  ev.preventDefault();
+  setSigCanvasFullscreen(true);
+});
+document.getElementById("sigFsDoneBtn").addEventListener("click", (ev) => {
+  ev.preventDefault();
+  setSigCanvasFullscreen(false);
+});
+document.getElementById("sigFsClearBtn").addEventListener("click", (ev) => {
   ev.preventDefault();
   photoSigCtx.clearRect(0, 0, photoSigCanvas.width, photoSigCanvas.height);
   photoSigHasStroke = false;
@@ -623,6 +709,7 @@ async function saveImageToDevice(dataUrl, filenameBase) {
 
 document.getElementById("photoSaveBtn").addEventListener("click", async () => {
   if (!pendingPhotoDataUrl) return;
+  if (!sigFullscreenOverlay.hidden) setSigCanvasFullscreen(false);
   const finalImage = await compositePhotoWithSignature(pendingPhotoDataUrl);
   const savePromise = saveImageToDevice(finalImage, `liv-photo-${Date.now()}`);
   await addEntry({
